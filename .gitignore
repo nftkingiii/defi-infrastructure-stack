@@ -19,3 +19,6 @@ artifacts/
 # OS
 .DS_Store
 Thumbs.db
+scripts/deploy/env.example
+scripts/indexer/.env.example
+scripts/deploy/.env.example
