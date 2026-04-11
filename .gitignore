@@ -1,0 +1,21 @@
+# Environment
+.env
+
+# Dependencies
+node_modules/
+
+# Local database
+data/
+*.db
+
+# Deployment state
+deployments/
+
+# Compiled artifacts
+bytecode/*.bin
+out/
+artifacts/
+
+# OS
+.DS_Store
+Thumbs.db
