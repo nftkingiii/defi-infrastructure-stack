@@ -1,66 +1,109 @@
-## Foundry
+# Governance-Minimized DeFi Infrastructure
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A trust-minimized oracle and risk parameter stack for immutable smart contracts on Monad Network.
 
-Foundry consists of:
+Built around three propositions: bridges sturdy enough for permanent integration, oracles with economic skin-in-the-game, and a perpetuals DEX as an empirical calibration instrument.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+---
 
-## Documentation
+## Deployed Contracts (Monad Testnet)
 
-https://book.getfoundry.sh/
+| Contract | Address |
+|---|---|
+| ScoreRegistry | [0xEC89687A090b1c7C6e8cd1F508B1Ab830f22634b](https://testnet.monadscan.com/address/0xEC89687A090b1c7C6e8cd1F508B1Ab830f22634b) |
+| PublisherStake | [0xb6F0efaB84835d52ca4F096EC5A673872b641003](https://testnet.monadscan.com/address/0xb6F0efaB84835d52ca4F096EC5A673872b641003) |
+| DeviationAdjudicator | [0xBF117752600fD331D4135DdEb2FF7Ef3FE1ef123](https://testnet.monadscan.com/address/0xBF117752600fD331D4135DdEb2FF7Ef3FE1ef123) |
+| PerpRiskParams | [0xe396dbCc768AbB81514c83a540e64072930eb898](https://testnet.monadscan.com/address/0xe396dbCc768AbB81514c83a540e64072930eb898) |
 
-## Usage
+Chain: Monad Testnet (chainId 10143)
 
-### Build
+---
 
-```shell
-$ forge build
-```
+## Overview
 
-### Test
+Most DeFi infrastructure relies on upgrade keys, governance votes, and multisig committees to manage risk. This model is incompatible with immutable contracts — contracts that cannot be patched and therefore cannot afford to depend on infrastructure that can change under them.
 
-```shell
-$ forge test
-```
+This stack replaces governance-mediated trust with economic trust. Publishers stake **shMON** collateral to earn write access to a yield intelligence registry. If their published scores diverge materially from realised outcomes, their stake is slashed by a permissionless watchdog. A perpetuals DEX consumes the registry to derive risk parameters deterministically — no admin can override a leverage limit or relax a margin requirement.
 
-### Format
+---
 
-```shell
-$ forge fmt
-```
+## Contracts
 
-### Gas Snapshots
+### `ScoreRegistry.sol`
+Immutable on-chain registry for yield intelligence scores. No admin keys, no upgradeability. Stores APY components, TVL, risk scores, volatility, IL risk, liquidity depth, utilisation rate, audit scores, and confidence levels per pool. Write access gated entirely by `PublisherStake`.
 
-```shell
-$ forge snapshot
-```
+### `PublisherStake.sol`
+shMON collateral contract that gates write access to the registry. Publishers deposit shMON (worth at least a MON-denominated minimum at current exchange rate) to register. They earn MEV-enhanced staking yield on locked collateral while active. Slash execution reduces stake and bans publishers after three offences.
 
-### Anvil
+### `DeviationAdjudicator.sol`
+Permissionless watchdog. Anyone can submit a deviation claim against a publisher with a small bond. After a 30-day settlement window, the claimant submits a merkle proof of realised outcomes. If the deviation threshold is breached, the publisher is slashed and the watchdog earns a bounty from the slashed stake.
 
-```shell
-$ anvil
-```
+**Three slash conditions:**
+- **APY deviation** — published APY differs from realised by more than 500bps
+- **Risk score flip** — pool rated safe suffers a 20%+ TVL loss event
+- **Confidence fraud** — high confidence claimed but zero updates made during the settlement window
 
-### Deploy
+### `PerpRiskParams.sol`
+Consumes `ScoreRegistry` to derive live risk parameters for a perpetuals DEX. All derivation is deterministic — same oracle inputs always produce the same parameters. Includes a circuit breaker that halts trading on any pool whose score becomes stale or whose confidence drops below the minimum threshold.
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+**Parameters derived per pool:**
+- Max open interest (scaled from TVL × risk score × liquidity depth)
+- Max leverage (scaled from risk score with IL haircut)
+- Initial and maintenance margin requirements (inflated by APY volatility and low confidence)
+- Funding rate multiplier (scaled by 30-day APY volatility)
+- Liquidation penalty (inversely related to risk score)
+- Stale price threshold (tightened by high volatility)
 
-### Cast
+---
 
-```shell
-$ cast <subcommand>
-```
+## Architecture
+ScoreRegistry        — immutable, no admin keys
+↑
+PublisherStake       — shMON collateral, slash on deviation
+↑
+DeviationAdjudicator — permissionless watchdog, merkle proof evidence
+↓
+PerpRiskParams       — deterministic risk derivation, circuit breaker
+↓
+Perps DEX            — research instrument, generates calibration data
+Every layer is governance-minimized. The registry is immutable. The stake contract enforces behavior economically. The adjudicator is permissionless. The DEX reads parameters it can trust because the publisher has something to lose.
 
-### Help
+---
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## Design Decisions
+
+**Why shMON instead of MON?**
+Publishers earn MEV-enhanced staking yield on locked collateral, which reduces the opportunity cost of participation and widens the publisher set. Slash amounts are denominated in MON but computed at the live shMON/MON exchange rate at execution time, keeping real-value penalties consistent as shMON appreciates.
+
+**Why deterministic parameter derivation?**
+Governance-adjustable risk parameters are a vector for manipulation. By deriving all parameters deterministically from oracle data, the only way to change a risk parameter is to change the underlying data — which requires either the market to move or the publisher to update their score, both of which are economically accountable actions.
+
+**Why a perps DEX as a research instrument?**
+Risk parameters like max OI cannot be reliably derived from theory alone. Running real positions against the derived parameters generates empirical data on liquidation rates, funding rate distributions, and scoring model blind spots. This feedback loop improves the oracle without governance intervention.
+
+---
+
+## Status
+
+- [x] ScoreRegistry
+- [x] PublisherStake
+- [x] DeviationAdjudicator
+- [x] PerpRiskParams
+- [x] Deployment scripts
+- [x] Test suite (31/31 passing)
+- [x] Off-chain evidence indexer
+- [x] Publisher agent (DefiLlama + on-chain fetcher, rule-based scorer)
+- [x] Deployed to Monad Testnet
+- [ ] Perps DEX prototype
+
+---
+
+## Further Reading
+
+The full thesis behind this stack is in [`docs/thesis.docx`](docs/thesis.docx).
+
+---
+
+## License
+
+MIT
