@@ -139,6 +139,26 @@ struct CircuitBreakerState {
 
 // ── Shared Errors ─────────────────────────────────────────────────────────────
 
+
+enum Side { Long, Short }
+
+struct Position {
+    bytes32  poolId;
+    address  trader;
+    Side     side;
+    uint128  collateralUsdc;
+    uint128  sizeUsdc;
+    uint32   entryPrice;
+    uint32   entryFundingIndex;
+    uint8    leverage;
+    uint16   initialMarginBps;
+    uint16   maintenanceMarginBps;
+    uint16   liquidationPenaltyBps;
+    uint8    riskScoreAtOpen;
+    uint48   openedAt;
+    bool     isOpen;
+}
+
 error NotAuthorised(address caller);
 error PoolNotFound(bytes32 poolId);
 error ZeroAddress();

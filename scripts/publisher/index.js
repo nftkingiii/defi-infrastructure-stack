@@ -98,7 +98,7 @@ async function runPipeline(writer, onchainFetcher) {
           continue;
         }
 
-        logger.info('Pool: %-30s APY: %s%%  Risk: %d/100  Conf: %d/100  AI: %s',
+        logger.info('Pool: %s APY: %s%%  Risk: %d/100  Conf: %d/100  AI: %s',
           pool.protocolName,
           (pool.totalApy / 100).toFixed(2),
           scoreResult.riskScore,
