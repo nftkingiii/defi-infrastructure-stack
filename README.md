@@ -10,13 +10,15 @@ Built around three propositions: bridges sturdy enough for permanent integration
 
 | Contract | Address |
 |---|---|
-| ScoreRegistry | [0xEC89687A090b1c7C6e8cd1F508B1Ab830f22634b](https://testnet.monadscan.com/address/0xEC89687A090b1c7C6e8cd1F508B1Ab830f22634b) |
-| PublisherStake | [0xb6F0efaB84835d52ca4F096EC5A673872b641003](https://testnet.monadscan.com/address/0xb6F0efaB84835d52ca4F096EC5A673872b641003) |
-| DeviationAdjudicator | [0xBF117752600fD331D4135DdEb2FF7Ef3FE1ef123](https://testnet.monadscan.com/address/0xBF117752600fD331D4135DdEb2FF7Ef3FE1ef123) |
-| PerpRiskParams | [0xe396dbCc768AbB81514c83a540e64072930eb898](https://testnet.monadscan.com/address/0xe396dbCc768AbB81514c83a540e64072930eb898) |
+| ScoreRegistry | [0x1172ce3bA6C6DcdD35C6b14638bE3d6287b8B0B0](https://testnet.monadscan.com/address/0x1172ce3bA6C6DcdD35C6b14638bE3d6287b8B0B0) |
+| PublisherStake | [0x9Db11F94f2E082D84AccEf885687d1D99D681743](https://testnet.monadscan.com/address/0x9Db11F94f2E082D84AccEf885687d1D99D681743) |
+| DeviationAdjudicator | [0x0191b2b80A39D945e67412a1652FC0121fc1b43B](https://testnet.monadscan.com/address/0x0191b2b80A39D945e67412a1652FC0121fc1b43B) |
+| PerpRiskParams | [0xEDdfEA29645FEd0ACbaB25668a94ef5A98e7A7B9](https://testnet.monadscan.com/address/0xEDdfEA29645FEd0ACbaB25668a94ef5A98e7A7B9) |
+| PerpsDEX | [0xD8e4f84f543836832b9CaBfC440488CE74Fb8133](https://testnet.monadscan.com/address/0xD8e4f84f543836832b9CaBfC440488CE74Fb8133) |
+| MockUSDC | [0x75761710de793134faCd2933fb495217eb89fb7f](https://testnet.monadscan.com/address/0x75761710de793134faCd2933fb495217eb89fb7f) |
+| MockShMON | [0x93B322334Fa8D7aC6799B5f9483EC7bDdaC2786D](https://testnet.monadscan.com/address/0x93B322334Fa8D7aC6799B5f9483EC7bDdaC2786D) |
 
 Chain: Monad Testnet (chainId 10143)
-
 ---
 
 ## Overview
@@ -90,11 +92,14 @@ Risk parameters like max OI cannot be reliably derived from theory alone. Runnin
 - [x] DeviationAdjudicator
 - [x] PerpRiskParams
 - [x] Deployment scripts
-- [x] Test suite (31/31 passing)
+- [x] Test suite (47/47 passing)
 - [x] Off-chain evidence indexer
 - [x] Publisher agent (DefiLlama + on-chain fetcher, rule-based scorer)
 - [x] Deployed to Monad Testnet
-- [ ] Perps DEX prototype
+- [x] PerpsDEX prototype (research instrument)
+- [ ] Frontend dashboard
+- [ ] Mainnet deployment
+- [ ] Audit
 
 ---
 

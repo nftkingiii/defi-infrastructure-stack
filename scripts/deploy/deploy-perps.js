@@ -129,7 +129,7 @@ async function main() {
   log.step('Register pools from ScoreRegistry into PerpRiskParams and PerpsDEX');
 
   const poolIds = await scoreRegistry.getAllPoolIds();
-  log.info('Found %d pools in ScoreRegistry', poolIds.length);
+  log.info('Found %s pools in ScoreRegistry', poolIds.length);
 
   const alreadyRegistered = await perpRiskParams.getRegisteredPools();
   const registeredSet     = new Set(alreadyRegistered);
@@ -157,7 +157,7 @@ async function main() {
     }
   }
 
-  log.success('Registered %d pools', registered);
+  log.success('Registered %s pools', registered);
 
   // ── Summary ───────────────────────────────────────────────────────────────
   log.divider();

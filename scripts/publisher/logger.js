@@ -6,7 +6,7 @@ const LOG_LEVEL = LEVELS[process.env.LOG_LEVEL?.toLowerCase()] ?? LEVELS.info;
 
 function format(level, msg, ...args) {
   let out = msg;
-  for (const arg of args) out = out.replace(/%[sdif]/, String(arg));
+  for (const arg of args) out = out.replace(/%[sdif%]/, a => a === '%%' ? '%' : String(arg));
   const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
   return `${ts} | ${level.toUpperCase().padEnd(5)} | ${out}`;
 }
