@@ -3,135 +3,130 @@
 import { useLiquidationRates, usePositionCount } from '@/lib/useDEX'
 import { usePoolCount } from '@/lib/useRegistry'
 
+const SCORE_RANGES = ['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–99']
+
 export function ResearchTab() {
   const { data: ratesRaw }      = useLiquidationRates()
   const { data: positionCount } = usePositionCount()
   const { data: poolCount }     = usePoolCount()
 
   const rates = ratesRaw?.map(r => r.result as [bigint, bigint, bigint] | undefined) ?? []
+  const totalLiq = rates.reduce((s, r) => s + (r ? Number(r[0]) : 0), 0)
+  const totalPos = rates.reduce((s, r) => s + (r ? Number(r[1]) : 0), 0)
+  const maxRate  = rates.reduce((m, r) => { const v = r ? Number(r[2]) : 0; return v > m ? v : m }, 1)
 
-  const maxRate = rates.reduce((m, r) => {
-    const v = r ? Number(r[2]) : 0
-    return v > m ? v : m
-  }, 1)
-
-  const totalLiquidations = rates.reduce((s, r) => s + (r ? Number(r[0]) : 0), 0)
-  const totalPositions    = rates.reduce((s, r) => s + (r ? Number(r[1]) : 0), 0)
-
-  const scoreRanges = ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-99']
+  const hasData = totalPos > 0
 
   return (
     <div>
-      <div className="grid-stats">
-        <div className="stat-card">
-          <div className="stat-label">Total positions opened</div>
-          <div className="stat-value purple">{positionCount?.toString() ?? '0'}</div>
+      <div className="stats-row">
+        <div className="stat-cell">
+          <div className="stat-label">Positions opened</div>
+          <div className="stat-value violet">{positionCount?.toString() ?? '0'}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Total liquidations</div>
-          <div className="stat-value" style={{ color: 'var(--red)' }}>{totalLiquidations}</div>
+        <div className="stat-cell">
+          <div className="stat-label">Liquidations</div>
+          <div className="stat-value red">{totalLiq}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-cell">
           <div className="stat-label">Overall liq rate</div>
           <div className="stat-value">
-            {totalPositions > 0 ? ((totalLiquidations / totalPositions) * 100).toFixed(1) + '%' : '—'}
+            {totalPos > 0 ? ((totalLiq / totalPos) * 100).toFixed(1) + '%' : '—'}
           </div>
         </div>
-        <div className="stat-card">
+        <div className="stat-cell">
           <div className="stat-label">Pools in oracle</div>
-          <div className="stat-value green">{poolCount?.toString() ?? '0'}</div>
+          <div className="stat-value acid">{poolCount?.toString() ?? '0'}</div>
         </div>
       </div>
 
-      <div className="section">
-        <div className="section-header">
-          <span className="section-title">Liquidation rate by oracle score bucket</span>
-          <span className="section-sub">
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <div className="panel-header">
+          <span className="panel-title">Liquidation rate by score bucket</span>
+          <span className="panel-sub">
             High liq rate in high-score buckets = oracle overrating safety
           </span>
         </div>
-
-        <div className="card" style={{ padding: 24 }}>
-          {totalPositions === 0 ? (
-            <div className="empty">
-              No position data yet. Open positions on the DEX tab to generate research data.
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 8, alignItems: 'end', height: 120, marginBottom: 8 }}>
-                {rates.map((r, i) => {
-                  const liqRate  = r ? Number(r[2]) : 0
-                  const liqCount = r ? Number(r[0]) : 0
-                  const posCount = r ? Number(r[1]) : 0
-                  const height   = maxRate > 0 ? Math.max(4, (liqRate / maxRate) * 100) : 4
-                  const color    = i >= 7 ? 'var(--green)' : i >= 4 ? 'var(--amber)' : 'var(--red)'
-                  return (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        {liqCount > 0 ? `${(liqRate / 100).toFixed(0)}%` : ''}
-                      </div>
-                      <div style={{ width: '100%', height: `${height}%`, background: color, borderRadius: '2px 2px 0 0', minHeight: 4 }} />
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 8 }}>
-                {scoreRanges.map(r => (
-                  <div key={r} style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>{r}</div>
-                ))}
-              </div>
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-                Risk score range (higher = safer rating by oracle)
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="section">
-        <div className="section-header">
-          <span className="section-title">Score bucket breakdown</span>
-        </div>
-        <div className="card">
-          <table>
-            <thead>
-              <tr>
-                <th>Score range</th>
-                <th>Oracle rating</th>
-                <th>Positions opened</th>
-                <th>Liquidations</th>
-                <th>Liq rate</th>
-                <th>Calibration signal</th>
-              </tr>
-            </thead>
-            <tbody>
+        {!hasData ? (
+          <div className="empty-state">
+            <strong>No position data yet</strong>
+            Open positions on the DEX tab to start generating calibration data
+          </div>
+        ) : (
+          <>
+            <div className="bar-chart">
               {rates.map((r, i) => {
-                const liqCount = r ? Number(r[0]) : 0
-                const posCount = r ? Number(r[1]) : 0
                 const liqRate  = r ? Number(r[2]) : 0
-                const rating   = i >= 8 ? 'Very safe' : i >= 6 ? 'Safe' : i >= 4 ? 'Moderate' : i >= 2 ? 'Risky' : 'Very risky'
-                const signal   = posCount === 0 ? '—'
-                  : liqRate > 3000 && i >= 6 ? 'Oracle overrating safety'
-                  : liqRate < 500 && i < 4   ? 'Oracle overrating risk'
-                  : 'Calibrated'
-                const sigColor = signal === 'Oracle overrating safety' ? 'var(--red)'
-                  : signal === 'Oracle overrating risk' ? 'var(--amber)'
-                  : signal === 'Calibrated' ? 'var(--green)'
-                  : 'var(--text-muted)'
+                const liqCount = r ? Number(r[0]) : 0
+                const barH     = maxRate > 0 ? Math.max(3, (liqRate / maxRate) * 100) : 3
+                const color    = i >= 8 ? 'var(--acid)' : i >= 6 ? 'var(--violet)' : i >= 4 ? 'var(--amber)' : 'var(--red)'
                 return (
-                  <tr key={i}>
-                    <td style={{ fontFamily: 'monospace' }}>{scoreRanges[i]}</td>
-                    <td style={{ color: i >= 6 ? 'var(--green)' : i >= 4 ? 'var(--amber)' : 'var(--red)' }}>{rating}</td>
-                    <td>{posCount}</td>
-                    <td>{liqCount}</td>
-                    <td>{posCount > 0 ? (liqRate / 100).toFixed(1) + '%' : '—'}</td>
-                    <td style={{ color: sigColor, fontSize: 12 }}>{signal}</td>
-                  </tr>
+                  <div key={i} className="bar-col">
+                    <div className="bar-pct">{liqCount > 0 ? (liqRate / 100).toFixed(0) + '%' : ''}</div>
+                    <div className="bar-body" style={{ height: `${barH}%`, background: color }} />
+                  </div>
                 )
               })}
-            </tbody>
-          </table>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6, padding: '8px 20px 16px' }}>
+              {SCORE_RANGES.map(r => (
+                <div key={r} className="bar-lbl" style={{ textAlign: 'center' }}>{r}</div>
+              ))}
+            </div>
+            <div style={{ padding: '0 20px 16px', fontSize: 10, color: 'var(--data-muted)', textAlign: 'center' }}>
+              Oracle risk score range (right = safer rating)
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <span className="panel-title">Score bucket breakdown</span>
         </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Score range</th>
+              <th>Oracle rating</th>
+              <th>Positions</th>
+              <th>Liquidations</th>
+              <th>Liq rate</th>
+              <th>Calibration signal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rates.map((r, i) => {
+              const liq     = r ? Number(r[0]) : 0
+              const pos     = r ? Number(r[1]) : 0
+              const rate    = r ? Number(r[2]) : 0
+              const rating  = i >= 8 ? 'Very safe' : i >= 6 ? 'Safe' : i >= 4 ? 'Moderate' : i >= 2 ? 'Risky' : 'Very risky'
+              const signal  = pos === 0 ? '—'
+                : rate > 3000 && i >= 6 ? 'Overrating safety'
+                : rate < 500 && i < 4   ? 'Overrating risk'
+                : pos > 0               ? 'Calibrated'
+                : '—'
+              const sigColor = signal === 'Overrating safety' ? 'var(--red)'
+                : signal === 'Overrating risk' ? 'var(--amber)'
+                : signal === 'Calibrated'      ? 'var(--acid)'
+                : 'var(--data-muted)'
+              const ratingColor = i >= 8 ? 'var(--acid)' : i >= 6 ? 'var(--violet)' : i >= 4 ? 'var(--amber)' : 'var(--red)'
+
+              return (
+                <tr key={i} className="row-enter" style={{ animationDelay: `${i * 30}ms` }}>
+                  <td style={{ color: 'var(--data-muted)' }}>{SCORE_RANGES[i]}</td>
+                  <td style={{ color: ratingColor }}>{rating}</td>
+                  <td>{pos}</td>
+                  <td>{liq}</td>
+                  <td style={{ color: rate > 2000 ? 'var(--red)' : 'var(--data)' }}>
+                    {pos > 0 ? (rate / 100).toFixed(1) + '%' : '—'}
+                  </td>
+                  <td style={{ color: sigColor, fontSize: 11 }}>{signal}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
