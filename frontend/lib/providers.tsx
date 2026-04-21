@@ -9,7 +9,7 @@ import '@rainbow-me/rainbowkit/styles.css'
 
 const config = getDefaultConfig({
   appName:   'Oracle Stack Dashboard',
-  projectId: 'oracle-stack-monad',
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'oracle-stack-monad',
   chains:    [MONAD_TESTNET as any],
   ssr:       true,
 })
