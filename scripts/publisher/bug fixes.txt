@@ -1,0 +1,16 @@
+Add an option to create username and set avatar with any image they want after creating an account
+Users should be able to use the "forget password?" to reset their passwords if forgotten.
+Remove the hashtag tabs that are beside the All tabs
+Generate a proper logo for the website favicon
+Remove the requirement for title or hashtags when a user is uploading a meme, add the option of adding the name of the original creator if there is any, with this, the only thing that should appear after upload is the meme and the username of the uploader plus the name of the original creator if added, an "untitled meme" should not appear as I have removed the need for users to add title. I still retain power to add titles and they'll appear when i add.
+Make it that the top 10 memes with the most likes are the only memes to appear in the featured slideshow.
+The search bar should only be for searching contributors or original creators
+Add an analytics tab in the admin section, it should display user metrics, number of new signups, daily visits, uploads, likes, all measured daily, weekly and monthly.
+When a user clicks a meme, it should come up as a full image, like someone selecting an image from a phone gallery, arrange the memes like that and also add the download button or sign at the top right of the image that popped up.
+Make it that when I click the monad meme vault title from the admin tab, it takes me back to the gallery home page.
+Also add an X/twitter logo at the bottom left that redirects users to the project x account, request for the link when you need it.
+
+V2
+Check if there's an issue with setting an avatar image and fix, plus, make it that whenever a user taps on his profile, he can edit both username and avatar. This command should mean that after signing up a user should be able set up a username and avatar, if username isn't set, use email name as default.
+Add an icon at the bottom right for turning on/off light mode and dark mode, it should be one button that switches from either a crescent for dark mode and sun for light mode.
+Is there a way to also make it so that when one clicks the admin or hall of fame it loads on a separate tab instead of on the same page, do that.

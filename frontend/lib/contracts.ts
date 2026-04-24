@@ -15,7 +15,7 @@ export const MONAD_TESTNET = {
   id:         10143,
   name:       'Monad Testnet',
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls:    { default: { http: ['https://testnet-rpc.monad.xyz'] } },
+  rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://testnet-rpc.monad.xyz'] } },
   blockExplorers: {
     default: { name: 'MonadScan', url: 'https://testnet.monadscan.com' }
   },
