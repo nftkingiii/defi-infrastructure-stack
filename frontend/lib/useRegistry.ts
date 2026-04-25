@@ -91,29 +91,34 @@ export function usePoolScores(poolIds: string[] | undefined) {
     Promise.all(poolIds.map(id => registry.getLatestScore(id)))
       .then((scores: any[]) => {
         if (cancelled) return
-        const results = scores.map(s => ({
-          result: {
-            poolId:          s.poolId,
-            protocolName:    s.protocolName,
-            symbol:          s.symbol,
-            category:        Number(s.category),
-            baseApy:         Number(s.baseApy),
-            rewardApy:       Number(s.rewardApy),
-            netApy:          Number(s.netApy),
-            apyVolatility30d: Number(s.apyVolatility30d),
-            tvlUsd:          BigInt(s.tvlUsd),
-            liquidityDepth:  Number(s.liquidityDepth),
-            utilisationRate: Number(s.utilisationRate),
-            riskScore:       Number(s.riskScore),
-            ilRisk:          Number(s.ilRisk),
-            auditScore:      Number(s.auditScore),
-            protocolAgeDays: Number(s.protocolAgeDays),
-            confidence:      Number(s.confidence),
-            publisher:       s.publisher,
-            timestamp:       Number(s.timestamp),
-            updateCount:     Number(s.updateCount),
-          } as PoolScore
-        }))
+        const results = scores.map((s: any) => {
+          // ethers returns tuple with both named and indexed fields
+          // access by index to be safe regardless of ethers version
+          const arr = Array.isArray(s) ? s : Object.values(s)
+          return {
+            result: {
+              poolId:           String(s.poolId   ?? s[0] ?? ''),
+              protocolName:     String(s.protocolName ?? s[1] ?? ''),
+              symbol:           String(s.symbol   ?? s[2] ?? ''),
+              category:         Number(s.category ?? s[3] ?? 0),
+              baseApy:          Number(s.baseApy  ?? s[4] ?? 0),
+              rewardApy:        Number(s.rewardApy ?? s[5] ?? 0),
+              netApy:           Number(s.netApy   ?? s[6] ?? 0),
+              apyVolatility30d: Number(s.apyVolatility30d ?? s[7] ?? 0),
+              tvlUsd:           typeof (s.tvlUsd ?? s[8]) === 'bigint' ? (s.tvlUsd ?? s[8]) : BigInt(String(s.tvlUsd ?? s[8] ?? 0)),
+              liquidityDepth:   Number(s.liquidityDepth ?? s[9] ?? 0),
+              utilisationRate:  Number(s.utilisationRate ?? s[10] ?? 0),
+              riskScore:        Number(s.riskScore ?? s[11] ?? 0),
+              ilRisk:           Number(s.ilRisk   ?? s[12] ?? 0),
+              auditScore:       Number(s.auditScore ?? s[13] ?? 0),
+              protocolAgeDays:  Number(s.protocolAgeDays ?? s[14] ?? 0),
+              confidence:       Number(s.confidence ?? s[15] ?? 0),
+              publisher:        String(s.publisher ?? s[16] ?? ''),
+              timestamp:        Number(s.timestamp ?? s[17] ?? 0),
+              updateCount:      Number(s.updateCount ?? s[18] ?? 0),
+            } as PoolScore
+          }
+        })
         setData(results)
         setLoad(false)
       })
