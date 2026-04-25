@@ -1,87 +1,168 @@
 'use client'
-import { parseAbi } from 'viem'
 
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { CONTRACTS, PERPS_DEX_ABI, ERC20_ABI, MONAD_TESTNET } from '@/lib/contracts'
-import { parseUnits } from 'viem'
+import { useState, useEffect } from 'react'
+import { ethers } from 'ethers'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { parseAbi, parseUnits } from 'viem'
+import { CONTRACTS, MONAD_TESTNET, ERC20_ABI, PERPS_DEX_ABI } from './contracts'
+
+const RPC = process.env.NEXT_PUBLIC_RPC_URL || 'https://testnet-rpc.monad.xyz'
+
+function getProvider() {
+  return new ethers.JsonRpcProvider(RPC)
+}
+
+function getDex() {
+  return new ethers.Contract(CONTRACTS.PerpsDEX, [
+    'function getSupportedPools() view returns (bytes32[])',
+    'function getOpenInterest(bytes32 poolId) view returns (uint128)',
+    'function getMarkPrice(bytes32 poolId) view returns (uint32)',
+    'function positionCount() view returns (uint256)',
+    'function getLiquidationRate(uint8 bucket) view returns (uint256 liquidations, uint256 positions, uint256 rateBps)',
+    'function isLiquidatable(uint256 positionId) view returns (bool)',
+  ], getProvider())
+}
+
+function getUsdc(address?: string) {
+  return new ethers.Contract(CONTRACTS.MockUSDC, [
+    'function balanceOf(address) view returns (uint256)',
+    'function allowance(address owner, address spender) view returns (uint256)',
+  ], getProvider())
+}
+
+// ── DEX pools ─────────────────────────────────────────────────────────────────
 
 export function useDEXPools() {
-  return useReadContract({
-    address:      CONTRACTS.PerpsDEX as `0x${string}`,
-    abi:          PERPS_DEX_ABI,
-    functionName: 'getSupportedPools',
-    chainId:      MONAD_TESTNET.id,
-  })
+  const [data, setData]      = useState<string[] | undefined>()
+  const [isLoading, setLoad] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    getDex().getSupportedPools()
+      .then((pools: string[]) => { if (!cancelled) { setData(pools); setLoad(false) } })
+      .catch(() => { if (!cancelled) setLoad(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  return { data, isLoading }
 }
+
+// ── Open interest ─────────────────────────────────────────────────────────────
 
 export function useOpenInterest(poolIds: string[] | undefined) {
-  const contracts = (poolIds ?? []).map(id => ({
-    address:      CONTRACTS.PerpsDEX as `0x${string}`,
-    abi:          parseAbi(['function getOpenInterest(bytes32 poolId) view returns (uint128)']),
-    functionName: 'getOpenInterest' as const,
-    args:         [id as `0x${string}`],
-    chainId:      MONAD_TESTNET.id,
-  }))
-  return useReadContracts({ contracts: contracts as any, query: { enabled: !!poolIds?.length } })
+  const [data, setData] = useState<{ result: bigint }[] | undefined>()
+
+  useEffect(() => {
+    if (!poolIds?.length) return
+    let cancelled = false
+    const dex = getDex()
+    Promise.all(poolIds.map(id => dex.getOpenInterest(id)))
+      .then((results: bigint[]) => {
+        if (!cancelled) setData(results.map(r => ({ result: BigInt(r) })))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [poolIds?.join(',')])
+
+  return { data }
 }
+
+// ── Mark prices ───────────────────────────────────────────────────────────────
 
 export function useMarkPrices(poolIds: string[] | undefined) {
-  const contracts = (poolIds ?? []).map(id => ({
-    address:      CONTRACTS.PerpsDEX as `0x${string}`,
-    abi:          parseAbi(['function getMarkPrice(bytes32 poolId) view returns (uint32)']),
-    functionName: 'getMarkPrice' as const,
-    args:         [id as `0x${string}`],
-    chainId:      MONAD_TESTNET.id,
-  }))
-  return useReadContracts({ contracts: contracts as any, query: { enabled: !!poolIds?.length } })
+  const [data, setData] = useState<{ result: number }[] | undefined>()
+
+  useEffect(() => {
+    if (!poolIds?.length) return
+    let cancelled = false
+    const dex = getDex()
+    Promise.all(poolIds.map(id => dex.getMarkPrice(id)))
+      .then((results: any[]) => {
+        if (!cancelled) setData(results.map(r => ({ result: Number(r) })))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [poolIds?.join(',')])
+
+  return { data }
 }
+
+// ── Position count ────────────────────────────────────────────────────────────
 
 export function usePositionCount() {
-  return useReadContract({
-    address:      CONTRACTS.PerpsDEX as `0x${string}`,
-    abi:          PERPS_DEX_ABI,
-    functionName: 'positionCount',
-    chainId:      MONAD_TESTNET.id,
-  })
+  const [data, setData] = useState<bigint | undefined>()
+
+  useEffect(() => {
+    let cancelled = false
+    getDex().positionCount()
+      .then((v: bigint) => { if (!cancelled) setData(BigInt(v)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  return { data }
 }
+
+// ── Liquidation rates ─────────────────────────────────────────────────────────
 
 export function useLiquidationRates() {
-  const buckets = Array.from({ length: 10 }, (_, i) => i)
-  const contracts = buckets.map(b => ({
-    address:      CONTRACTS.PerpsDEX as `0x${string}`,
-    abi:          parseAbi(['function getLiquidationRate(uint8 bucket) view returns (uint256 liquidations, uint256 positions, uint256 rateBps)']),
-    functionName: 'getLiquidationRate' as const,
-    args:         [b],
-    chainId:      MONAD_TESTNET.id,
-  }))
-  return useReadContracts({ contracts: contracts as any })
+  const [data, setData] = useState<{ result: [bigint, bigint, bigint] | undefined }[] | undefined>()
+
+  useEffect(() => {
+    let cancelled = false
+    const dex = getDex()
+    Promise.all(Array.from({ length: 10 }, (_, i) => dex.getLiquidationRate(i)))
+      .then((results: any[]) => {
+        if (!cancelled) setData(results.map(r => ({
+          result: [BigInt(r.liquidations), BigInt(r.positions), BigInt(r.rateBps)] as [bigint, bigint, bigint]
+        })))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  return { data }
 }
+
+// ── USDC balance ──────────────────────────────────────────────────────────────
 
 export function useUsdcBalance(address: string | undefined) {
-  return useReadContract({
-    address:      CONTRACTS.MockUSDC as `0x${string}`,
-    abi:          ERC20_ABI,
-    functionName: 'balanceOf',
-    args:         address ? [address as `0x${string}`] : undefined,
-    query:        { enabled: !!address },
-    chainId:      MONAD_TESTNET.id,
-  })
+  const [data, setData] = useState<bigint | undefined>()
+
+  useEffect(() => {
+    if (!address) return
+    let cancelled = false
+    getUsdc().balanceOf(address)
+      .then((v: bigint) => { if (!cancelled) setData(BigInt(v)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [address])
+
+  return { data }
 }
 
+// ── USDC allowance ────────────────────────────────────────────────────────────
+
 export function useUsdcAllowance(owner: string | undefined) {
-  return useReadContract({
-    address:      CONTRACTS.MockUSDC as `0x${string}`,
-    abi:          ERC20_ABI,
-    functionName: 'allowance',
-    args:         owner ? [owner as `0x${string}`, CONTRACTS.PerpsDEX as `0x${string}`] : undefined,
-    query:        { enabled: !!owner },
-    chainId:      MONAD_TESTNET.id,
-  })
+  const [data, setData] = useState<bigint | undefined>()
+
+  useEffect(() => {
+    if (!owner) return
+    let cancelled = false
+    getUsdc().allowance(owner, CONTRACTS.PerpsDEX)
+      .then((v: bigint) => { if (!cancelled) setData(BigInt(v)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [owner])
+
+  return { data }
 }
+
+// ── Write hooks (keep using wagmi for wallet transactions) ────────────────────
 
 export function useApproveUsdc() {
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess }   = useWaitForTransactionReceipt({ hash })
 
   const approve = (amount: string) => {
     writeContract({
@@ -97,7 +178,7 @@ export function useApproveUsdc() {
 
 export function useMintUsdc() {
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess }   = useWaitForTransactionReceipt({ hash })
 
   const mint = (to: string, amount: string) => {
     writeContract({
@@ -113,7 +194,7 @@ export function useMintUsdc() {
 
 export function useOpenPosition() {
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess }   = useWaitForTransactionReceipt({ hash })
 
   const open = (poolId: string, side: number, collateral: string, leverage: number) => {
     writeContract({
@@ -129,7 +210,7 @@ export function useOpenPosition() {
 
 export function useClosePosition() {
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess }   = useWaitForTransactionReceipt({ hash })
 
   const close = (positionId: bigint) => {
     writeContract({
