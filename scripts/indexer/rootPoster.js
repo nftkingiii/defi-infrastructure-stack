@@ -16,7 +16,7 @@ const { buildTree }    = require('./merkle');
 const logger           = require('./logger');
 
 const ADJUDICATOR_ABI = [
-  'function postEvidenceRoot(bytes32 poolId, uint256 windowStart, bytes32 root) external',
+  'function postEvidenceRoot(bytes32 poolId, address publisher, uint256 windowStart, bytes32 root) external',
   'event EvidenceRootPosted(bytes32 indexed poolId, address indexed publisher, uint256 indexed windowStart, bytes32 root)',
 ];
 
@@ -130,6 +130,7 @@ class RootPoster {
 
         const tx = await this.adjudicator.postEvidenceRoot(
           entry.poolId,
+          entry.publisher,
           entry.windowStart,
           entry.root
         );

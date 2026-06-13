@@ -36,6 +36,7 @@ interface IPerpRiskParams {
     function getParams(bytes32 poolId) external returns (RiskParams memory);
     function getCachedParams(bytes32 poolId) external view returns (RiskParams memory);
     function registerPool(bytes32 poolId, uint128 tvlCapUsd) external;
+    function clearCircuitBreaker(bytes32 poolId) external;
 }
 
 interface IERC20 {
@@ -52,22 +53,22 @@ event PositionOpened(
     uint256 indexed positionId,
     bytes32 indexed poolId,
     address indexed trader,
-    Side    side,
+    Side side,
     uint128 collateralUsdc,
     uint128 sizeUsdc,
-    uint8   leverage,
-    uint8   riskScoreAtOpen,
-    uint32  entryPrice,
-    uint48  timestamp
+    uint8 leverage,
+    uint8 riskScoreAtOpen,
+    uint32 entryPrice,
+    uint48 timestamp
 );
 
 event PositionClosed(
     uint256 indexed positionId,
     address indexed trader,
-    int128  pnlUsdc,
+    int128 pnlUsdc,
     uint128 fundingPaid,
-    uint48  duration,
-    uint32  exitPrice
+    uint48 duration,
+    uint32 exitPrice
 );
 
 event PositionLiquidated(
@@ -76,16 +77,11 @@ event PositionLiquidated(
     address indexed liquidator,
     uint128 collateralSeized,
     uint128 liquidatorBounty,
-    uint8   riskScoreAtLiquidation,
-    uint48  timestamp
+    uint8 riskScoreAtLiquidation,
+    uint48 timestamp
 );
 
-event FundingAccrued(
-    bytes32 indexed poolId,
-    int32   fundingRate,
-    uint32  fundingIndex,
-    uint48  timestamp
-);
+event FundingAccrued(bytes32 indexed poolId, int32 fundingRate, uint32 fundingIndex, uint48 timestamp);
 
 event PoolAdded(bytes32 indexed poolId, uint48 timestamp);
 event PriceUpdated(bytes32 indexed poolId, uint32 price, uint48 timestamp);
@@ -103,48 +99,49 @@ error PositionNotLiquidatable(uint256 positionId);
 error TradingHaltedForPool(bytes32 poolId);
 error ZeroSize();
 error Unauthorised(address caller);
+error TokenTransferFailed();
+error InvalidPrice();
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 contract PerpsDEX {
-
     // ── Constants ─────────────────────────────────────────────────────────────
 
-    uint256 public constant USDC_DECIMALS     = 6;
-    uint256 public constant USDC_SCALE        = 1e6;
-    uint32  public constant PRICE_SCALE       = 1e4;    // price in bps, 10000 = $1.00
-    uint32  public constant FUNDING_SCALE     = 1e6;    // funding index scale
-    uint32  public constant BLOCKS_PER_DAY    = 172_800; // ~0.5s blocks
+    uint256 public constant USDC_DECIMALS = 6;
+    uint256 public constant USDC_SCALE = 1e6;
+    uint32 public constant PRICE_SCALE = 1e4; // price in bps, 10000 = $1.00
+    uint32 public constant FUNDING_SCALE = 1e6; // funding index scale
+    uint32 public constant BLOCKS_PER_DAY = 172_800; // ~0.5s blocks
 
     // ── Immutables ────────────────────────────────────────────────────────────
 
     IPerpRiskParams public immutable riskParams;
-    IERC20          public immutable usdc;
-    address         public immutable owner;
+    IERC20 public immutable usdc;
+    address public immutable owner;
 
     // ── State ─────────────────────────────────────────────────────────────────
 
     uint256 public positionCount;
 
-    mapping(uint256 => Position)  private _positions;
-    mapping(bytes32 => bool)      private _supportedPools;
-    mapping(bytes32 => uint32)    private _markPrice;       // poolId => price (bps)
-    mapping(bytes32 => uint128)   private _openInterest;    // poolId => total OI (USDC)
-    mapping(bytes32 => uint32)    private _fundingIndex;    // poolId => cumulative funding
-    mapping(bytes32 => uint48)    private _lastFundingBlock;
-    bytes32[]                     private _pools;
+    mapping(uint256 => Position) private _positions;
+    mapping(bytes32 => bool) private _supportedPools;
+    mapping(bytes32 => uint32) private _markPrice; // poolId => price (bps)
+    mapping(bytes32 => uint128) private _openInterest; // poolId => total OI (USDC)
+    mapping(bytes32 => uint32) private _fundingIndex; // poolId => cumulative funding
+    mapping(bytes32 => uint48) private _lastFundingBlock;
+    bytes32[] private _pools;
 
     // Research data: tracks liquidation count per oracle score bucket
     // score bucket 0-9 maps to riskScore ranges 0-9, 10-19, ... 90-99
-    mapping(uint8 => uint256)     public liquidationsByScoreBucket;
-    mapping(uint8 => uint256)     public positionsByScoreBucket;
+    mapping(uint8 => uint256) public liquidationsByScoreBucket;
+    mapping(uint8 => uint256) public positionsByScoreBucket;
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     constructor(address _riskParams, address _usdc) {
         riskParams = IPerpRiskParams(_riskParams);
-        usdc       = IERC20(_usdc);
-        owner      = msg.sender;
+        usdc = IERC20(_usdc);
+        owner = msg.sender;
     }
 
     // ── Pool Management ───────────────────────────────────────────────────────
@@ -155,11 +152,19 @@ contract PerpsDEX {
      */
     function addPool(bytes32 poolId, uint32 initialPrice) external {
         if (msg.sender != owner) revert Unauthorised(msg.sender);
+        if (initialPrice == 0) revert InvalidPrice();
+        if (_supportedPools[poolId]) return;
+        riskParams.registerPool(poolId, 0);
         _supportedPools[poolId] = true;
-        _markPrice[poolId]      = initialPrice;
+        _markPrice[poolId] = initialPrice;
         _lastFundingBlock[poolId] = uint48(block.number);
         _pools.push(poolId);
         emit PoolAdded(poolId, uint48(block.timestamp));
+    }
+
+    function clearPoolCircuitBreaker(bytes32 poolId) external {
+        if (msg.sender != owner) revert Unauthorised(msg.sender);
+        riskParams.clearCircuitBreaker(poolId);
     }
 
     /**
@@ -170,6 +175,7 @@ contract PerpsDEX {
     function updatePrice(bytes32 poolId, uint32 newPrice) external {
         if (msg.sender != owner) revert Unauthorised(msg.sender);
         if (!_supportedPools[poolId]) revert PoolNotSupported(poolId);
+        if (newPrice == 0) revert InvalidPrice();
         _accrueAllFunding(poolId);
         _markPrice[poolId] = newPrice;
         emit PriceUpdated(poolId, newPrice, uint48(block.timestamp));
@@ -184,14 +190,12 @@ contract PerpsDEX {
      * @param collateralUsdc USDC collateral (6 decimals)
      * @param leverage       Leverage multiplier (1-100)
      */
-    function openPosition(
-        bytes32 poolId,
-        Side    side,
-        uint128 collateralUsdc,
-        uint8   leverage
-    ) external returns (uint256 positionId) {
+    function openPosition(bytes32 poolId, Side side, uint128 collateralUsdc, uint8 leverage)
+        external
+        returns (uint256 positionId)
+    {
         if (!_supportedPools[poolId]) revert PoolNotSupported(poolId);
-        if (collateralUsdc == 0)      revert ZeroSize();
+        if (collateralUsdc == 0) revert ZeroSize();
 
         // ── Read risk params atomically
         RiskParams memory params = riskParams.getParams(poolId);
@@ -205,9 +209,7 @@ contract PerpsDEX {
         uint128 sizeUsdc = uint128(uint256(collateralUsdc) * leverage);
 
         // ── Validate collateral covers initial margin
-        uint128 requiredMargin = uint128(
-            (uint256(sizeUsdc) * params.initialMarginBps) / 10_000
-        );
+        uint128 requiredMargin = uint128((uint256(sizeUsdc) * params.initialMarginBps) / 10_000);
         if (collateralUsdc < requiredMargin) {
             revert InsufficientCollateral(collateralUsdc, requiredMargin);
         }
@@ -220,38 +222,44 @@ contract PerpsDEX {
         _accrueAllFunding(poolId);
 
         // ── Pull collateral
-        usdc.transferFrom(msg.sender, address(this), collateralUsdc);
+        _safeTransferFrom(msg.sender, address(this), collateralUsdc);
 
         // ── Store position
         positionId = ++positionCount;
         _positions[positionId] = Position({
-            poolId:                poolId,
-            trader:                msg.sender,
-            side:                  side,
-            collateralUsdc:        collateralUsdc,
-            sizeUsdc:              sizeUsdc,
-            entryPrice:            _markPrice[poolId],
-            entryFundingIndex:     _fundingIndex[poolId],
-            leverage:              leverage,
-            initialMarginBps:      params.initialMarginBps,
-            maintenanceMarginBps:  params.maintenanceMarginBps,
+            poolId: poolId,
+            trader: msg.sender,
+            side: side,
+            collateralUsdc: collateralUsdc,
+            sizeUsdc: sizeUsdc,
+            entryPrice: _markPrice[poolId],
+            entryFundingIndex: _fundingIndex[poolId],
+            leverage: leverage,
+            initialMarginBps: params.initialMarginBps,
+            maintenanceMarginBps: params.maintenanceMarginBps,
             liquidationPenaltyBps: params.liquidationPenaltyBps,
-            riskScoreAtOpen:       params.confidenceUsed,
-            openedAt:              uint48(block.timestamp),
-            isOpen:                true
+            riskScoreAtOpen: params.riskScoreUsed,
+            openedAt: uint48(block.timestamp),
+            isOpen: true
         });
 
         // ── Update OI
         _openInterest[poolId] += sizeUsdc;
 
         // ── Research tracking
-        uint8 bucket = params.confidenceUsed / 10;
+        uint8 bucket = _scoreBucket(params.riskScoreUsed);
         positionsByScoreBucket[bucket]++;
 
         emit PositionOpened(
-            positionId, poolId, msg.sender, side,
-            collateralUsdc, sizeUsdc, leverage,
-            params.confidenceUsed, _markPrice[poolId],
+            positionId,
+            poolId,
+            msg.sender,
+            side,
+            collateralUsdc,
+            sizeUsdc,
+            leverage,
+            params.riskScoreUsed,
+            _markPrice[poolId],
             uint48(block.timestamp)
         );
     }
@@ -261,8 +269,8 @@ contract PerpsDEX {
      */
     function closePosition(uint256 positionId) external {
         Position storage pos = _positions[positionId];
-        if (pos.openedAt == 0)   revert PositionNotFound(positionId);
-        if (!pos.isOpen)          revert PositionAlreadyClosed(positionId);
+        if (pos.openedAt == 0) revert PositionNotFound(positionId);
+        if (!pos.isOpen) revert PositionAlreadyClosed(positionId);
         if (pos.trader != msg.sender) revert NotPositionOwner(positionId, msg.sender);
 
         _accrueAllFunding(pos.poolId);
@@ -276,14 +284,11 @@ contract PerpsDEX {
         // Settle: return collateral +/- PnL
         int128 settlement = int128(pos.collateralUsdc) + pnl - int128(fundingPaid);
         if (settlement > 0) {
-            usdc.transfer(msg.sender, uint128(settlement));
+            _safeTransfer(msg.sender, uint128(settlement));
         }
         // If settlement <= 0 collateral is fully lost (absorbed by DEX)
 
-        emit PositionClosed(
-            positionId, msg.sender, pnl, fundingPaid,
-            uint48(block.timestamp) - pos.openedAt, exitPrice
-        );
+        emit PositionClosed(positionId, msg.sender, pnl, fundingPaid, uint48(block.timestamp) - pos.openedAt, exitPrice);
     }
 
     /**
@@ -293,7 +298,7 @@ contract PerpsDEX {
     function liquidate(uint256 positionId) external {
         Position storage pos = _positions[positionId];
         if (pos.openedAt == 0) revert PositionNotFound(positionId);
-        if (!pos.isOpen)        revert PositionAlreadyClosed(positionId);
+        if (!pos.isOpen) revert PositionAlreadyClosed(positionId);
 
         _accrueAllFunding(pos.poolId);
 
@@ -302,9 +307,7 @@ contract PerpsDEX {
         // Read current risk score for research logging
         RiskParams memory params = riskParams.getCachedParams(pos.poolId);
 
-        uint128 bounty = uint128(
-            (uint256(pos.sizeUsdc) * pos.liquidationPenaltyBps) / 10_000
-        );
+        uint128 bounty = uint128((uint256(pos.sizeUsdc) * pos.liquidationPenaltyBps) / 10_000);
         bounty = bounty > pos.collateralUsdc ? pos.collateralUsdc : bounty;
 
         pos.isOpen = false;
@@ -314,12 +317,15 @@ contract PerpsDEX {
         uint8 bucket = pos.riskScoreAtOpen / 10;
         liquidationsByScoreBucket[bucket]++;
 
-        usdc.transfer(msg.sender, bounty);
+        _safeTransfer(msg.sender, bounty);
 
         emit PositionLiquidated(
-            positionId, pos.trader, msg.sender,
-            pos.collateralUsdc, bounty,
-            params.confidenceUsed,
+            positionId,
+            pos.trader,
+            msg.sender,
+            pos.collateralUsdc,
+            bounty,
+            params.riskScoreUsed,
             uint48(block.timestamp)
         );
     }
@@ -353,11 +359,13 @@ contract PerpsDEX {
      *         means the oracle is over-rating those pools.
      */
     function getLiquidationRate(uint8 bucket)
-        external view returns (uint256 liquidations, uint256 positions, uint256 rateBps)
+        external
+        view
+        returns (uint256 liquidations, uint256 positions, uint256 rateBps)
     {
         liquidations = liquidationsByScoreBucket[bucket];
-        positions    = positionsByScoreBucket[bucket];
-        rateBps      = positions > 0 ? (liquidations * 10_000) / positions : 0;
+        positions = positionsByScoreBucket[bucket];
+        rateBps = positions > 0 ? (liquidations * 10_000) / positions : 0;
     }
 
     function isLiquidatable(uint256 positionId) external view returns (bool) {
@@ -378,98 +386,95 @@ contract PerpsDEX {
         // Funding rate from cached params: fundingRateMultiplier / BLOCKS_PER_DAY
         // Expressed in FUNDING_SCALE units per block
         RiskParams memory params = riskParams.getCachedParams(poolId);
-        uint32 ratePerBlock = params.fundingRateMultiplier / BLOCKS_PER_DAY;
-
-        uint32 delta = uint32(uint256(ratePerBlock) * blocksDelta);
-        _fundingIndex[poolId]    += delta;
+        uint32 delta = uint32((uint256(params.fundingRateMultiplier) * blocksDelta) / BLOCKS_PER_DAY);
+        _fundingIndex[poolId] += delta;
         _lastFundingBlock[poolId] = currBlock;
 
-        emit FundingAccrued(poolId, int32(ratePerBlock), _fundingIndex[poolId], uint48(block.timestamp));
+        emit FundingAccrued(
+            poolId, int32(uint32(params.fundingRateMultiplier)), _fundingIndex[poolId], uint48(block.timestamp)
+        );
     }
 
     // ── Internal: PnL ────────────────────────────────────────────────────────
 
-    function _computePnL(Position storage pos)
-        internal view returns (int128 pnl, uint128 fundingPaid)
-    {
+    function _computePnL(Position storage pos) internal view returns (int128 pnl, uint128 fundingPaid) {
         uint32 currentPrice = _markPrice[pos.poolId];
-        uint32 entryPrice   = pos.entryPrice;
+        uint32 entryPrice = pos.entryPrice;
 
         // Price PnL
         if (pos.side == Side.Long) {
             if (currentPrice > entryPrice) {
-                pnl = int128(uint128(
-                    (uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / PRICE_SCALE
-                ));
+                pnl = int128(uint128((uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / entryPrice));
             } else {
-                pnl = -int128(uint128(
-                    (uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / PRICE_SCALE
-                ));
+                pnl = -int128(uint128((uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / entryPrice));
             }
         } else {
             if (currentPrice < entryPrice) {
-                pnl = int128(uint128(
-                    (uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / PRICE_SCALE
-                ));
+                pnl = int128(uint128((uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / entryPrice));
             } else {
-                pnl = -int128(uint128(
-                    (uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / PRICE_SCALE
-                ));
+                pnl = -int128(uint128((uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / entryPrice));
             }
         }
 
         // Funding paid
         uint32 fundingDelta = _fundingIndex[pos.poolId] - pos.entryFundingIndex;
-        fundingPaid = uint128(
-            (uint256(pos.sizeUsdc) * fundingDelta) / FUNDING_SCALE
-        );
+        fundingPaid = uint128((uint256(pos.sizeUsdc) * fundingDelta) / FUNDING_SCALE);
     }
 
     // ── Internal: Liquidation check ───────────────────────────────────────────
 
     function _isLiquidatable(Position storage pos) internal view returns (bool) {
         uint32 currentPrice = _markPrice[pos.poolId];
-        uint32 entryPrice   = pos.entryPrice;
+        uint32 entryPrice = pos.entryPrice;
 
         // Compute unrealised PnL
         int128 unrealisedPnl;
         if (pos.side == Side.Long) {
             if (currentPrice > entryPrice) {
-                unrealisedPnl = int128(uint128(
-                    (uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / PRICE_SCALE
-                ));
+                unrealisedPnl = int128(uint128((uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / entryPrice));
             } else {
-                unrealisedPnl = -int128(uint128(
-                    (uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / PRICE_SCALE
-                ));
+                unrealisedPnl = -int128(uint128((uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / entryPrice));
             }
         } else {
             if (currentPrice < entryPrice) {
-                unrealisedPnl = int128(uint128(
-                    (uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / PRICE_SCALE
-                ));
+                unrealisedPnl = int128(uint128((uint256(pos.sizeUsdc) * (entryPrice - currentPrice)) / entryPrice));
             } else {
-                unrealisedPnl = -int128(uint128(
-                    (uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / PRICE_SCALE
-                ));
+                unrealisedPnl = -int128(uint128((uint256(pos.sizeUsdc) * (currentPrice - entryPrice)) / entryPrice));
             }
         }
 
         // Funding accrued
-        uint32 fundingDelta  = _fundingIndex[pos.poolId] - pos.entryFundingIndex;
-        uint128 fundingOwed  = uint128(
-            (uint256(pos.sizeUsdc) * fundingDelta) / FUNDING_SCALE
-        );
+        uint32 fundingDelta = _fundingIndex[pos.poolId] - pos.entryFundingIndex;
+        uint128 fundingOwed = uint128((uint256(pos.sizeUsdc) * fundingDelta) / FUNDING_SCALE);
 
         // Effective collateral
         int128 effectiveCollateral = int128(pos.collateralUsdc) + unrealisedPnl - int128(fundingOwed);
         if (effectiveCollateral <= 0) return true;
 
         // Maintenance margin check
-        uint128 maintMargin = uint128(
-            (uint256(pos.sizeUsdc) * pos.maintenanceMarginBps) / 10_000
-        );
+        uint128 maintMargin = uint128((uint256(pos.sizeUsdc) * pos.maintenanceMarginBps) / 10_000);
 
         return uint128(effectiveCollateral) < maintMargin;
+    }
+
+    function _scoreBucket(uint8 riskScore) internal pure returns (uint8) {
+        uint8 bucket = riskScore / 10;
+        return bucket > 9 ? 9 : bucket;
+    }
+
+    function _safeTransfer(address to, uint256 amount) internal {
+        (bool success, bytes memory data) =
+            address(usdc).call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
+            revert TokenTransferFailed();
+        }
+    }
+
+    function _safeTransferFrom(address from, address to, uint256 amount) internal {
+        (bool success, bytes memory data) =
+            address(usdc).call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount));
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
+            revert TokenTransferFailed();
+        }
     }
 }

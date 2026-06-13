@@ -31,6 +31,7 @@ const MOCK_USDC_ABI = [
 
 const PERPS_DEX_ABI = [
   'function addPool(bytes32 poolId, uint32 initialPrice) external',
+  'function clearPoolCircuitBreaker(bytes32 poolId) external',
   'function getSupportedPools() view returns (bytes32[])',
   'function owner() view returns (address)',
 ];
@@ -41,7 +42,8 @@ const SCORE_REGISTRY_ABI = [
 ];
 
 const PERP_RISK_PARAMS_ABI = [
-  'function registerPool(bytes32 poolId, uint128 tvlCapUsd) external',
+  'function perpDex() view returns (address)',
+  'function setPerpDex(address _perpDex) external',
   'function getRegisteredPools() view returns (bytes32[])',
 ];
 
@@ -125,28 +127,27 @@ async function main() {
   const perpRiskParams = new ethers.Contract(deployed.PerpRiskParams, PERP_RISK_PARAMS_ABI, signer);
   const scoreRegistry  = new ethers.Contract(deployed.ScoreRegistry, SCORE_REGISTRY_ABI, signer);
 
+  const configuredPerpDex = await perpRiskParams.perpDex();
+  if (configuredPerpDex === ethers.ZeroAddress) {
+    const tx = await perpRiskParams.setPerpDex(perpsDexAddress);
+    await tx.wait();
+    log.success('Connected PerpRiskParams to PerpsDEX');
+  } else if (configuredPerpDex.toLowerCase() !== perpsDexAddress.toLowerCase()) {
+    throw new Error(`PerpRiskParams is connected to ${configuredPerpDex}, not ${perpsDexAddress}`);
+  }
+
   // ── Step 4: Register pools ────────────────────────────────────────────────
   log.step('Register pools from ScoreRegistry into PerpRiskParams and PerpsDEX');
 
   const poolIds = await scoreRegistry.getAllPoolIds();
   log.info('Found %s pools in ScoreRegistry', poolIds.length);
 
-  const alreadyRegistered = await perpRiskParams.getRegisteredPools();
-  const registeredSet     = new Set(alreadyRegistered);
-
   let registered = 0;
   for (const poolId of poolIds.slice(0, 5)) {   // register first 5 pools
     try {
       const score = await scoreRegistry.getLatestScore(poolId);
 
-      // Register in PerpRiskParams if not already
-      if (!registeredSet.has(poolId)) {
-        const tx = await perpRiskParams.registerPool(poolId, 0);
-        await tx.wait();
-        log.info('Registered pool in PerpRiskParams: %s', score.protocolName);
-      }
-
-      // Add to PerpsDEX with initial price of $1.00 (10000 bps)
+      // PerpsDEX atomically registers the pool in PerpRiskParams.
       const tx2 = await perpsDex.addPool(poolId, 10_000);
       await tx2.wait();
       log.info('Added pool to PerpsDEX: %s', score.protocolName);

@@ -1,0 +1,3 @@
+anon public: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlaGF1a2dndGRhdmNld3pjdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MzU2NzAsImV4cCI6MjA5NDQxMTY3MH0.ZaQYGb5LlENrMfYt3NYqIhAmen1A4c7QvOc7hBSB0r4
+
+project url: https://fehaukggtdavcewzcvhv.supabase.co

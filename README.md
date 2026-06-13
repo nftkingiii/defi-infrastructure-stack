@@ -92,7 +92,7 @@ Risk parameters like max OI cannot be reliably derived from theory alone. Runnin
 - [x] DeviationAdjudicator
 - [x] PerpRiskParams
 - [x] Deployment scripts
-- [x] Test suite (47/47 passing)
+- [x] Test suite (53/53 passing)
 - [x] Off-chain evidence indexer
 - [x] Publisher agent (DefiLlama + on-chain fetcher, rule-based scorer)
 - [x] Deployed to Monad Testnet

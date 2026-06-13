@@ -42,12 +42,12 @@ const PUBLISHER_STAKE_ABI = [
 // ── DeviationAdjudicator ──────────────────────────────────────────────────────
 
 const DEVIATION_ADJUDICATOR_ABI = [
-  'constructor(address _publisherStake, address _scoreRegistry, address _shMon)',
-  'function postEvidenceRoot(bytes32 poolId, uint256 windowStart, bytes32 root) external',
-  'function getEvidenceRoot(address poster, bytes32 poolId, uint256 windowStart) view returns (bytes32)',
+  'constructor(address _publisherStake, address _scoreRegistry, address _shMon, address _evidencePoster)',
+  'function postEvidenceRoot(bytes32 poolId, address publisher, uint256 windowStart, bytes32 root) external',
+  'function getEvidenceRoot(address publisher, bytes32 poolId, uint256 windowStart) view returns (bytes32)',
   'function submitClaim(bytes32 poolId, address publisher, uint8 reason, uint128 bond) external returns (uint256 claimId)',
-  'function executeClaim(uint256 claimId, address evidencePoster, uint256 windowStart, uint32 realisedApy, uint128 realisedTvl, uint32 updateCount, bytes32[] calldata proof) external',
-  'function getClaim(uint256 claimId) view returns (tuple(bytes32 poolId, address publisher, address claimant, uint48 submittedAt, uint48 settlementEndsAt, uint128 claimantBond, uint32 publishedApy, uint8 publishedRiskScore, uint8 publishedConfidence, uint128 publishedTvl, uint8 status, uint8 reason))',
+  'function executeClaim(uint256 claimId, uint256 windowStart, uint48 evidenceTimestamp, uint32 realisedApy, uint128 realisedTvl, uint32 updateCount, bytes32[] calldata proof) external',
+  'function getClaim(uint256 claimId) view returns (tuple(bytes32 poolId, address publisher, address claimant, uint48 submittedAt, uint48 settlementEndsAt, uint128 claimantBond, uint32 publishedApy, uint8 publishedRiskScore, uint8 publishedConfidence, uint128 publishedTvl, uint32 publishedUpdateCount, uint8 status, uint8 reason))',
   'function hasActiveClaim(address publisher, bytes32 poolId) view returns (bool, uint256)',
   'event ClaimSubmitted(uint256 indexed claimId, bytes32 indexed poolId, address indexed publisher, address claimant, uint8 reason, uint48 settlementEndsAt)',
   'event ClaimExecuted(uint256 indexed claimId, address indexed publisher, address indexed watchdog, uint8 reason, uint128 slashAmount)',
@@ -57,9 +57,11 @@ const DEVIATION_ADJUDICATOR_ABI = [
 
 const PERP_RISK_PARAMS_ABI = [
   'constructor(address _scoreRegistry, address _perpDex)',
+  'function setPerpDex(address _perpDex) external',
   'function registerPool(bytes32 poolId, uint128 tvlCapUsd) external',
-  'function getParams(bytes32 poolId) external returns (tuple(uint128 maxOI, uint8 maxLeverage, uint16 initialMarginBps, uint16 maintenanceMarginBps, uint16 fundingRateMultiplier, uint16 liquidationPenaltyBps, uint32 stalePriceThreshold, bool tradingHalted, uint48 computedAt, uint8 confidenceUsed))',
-  'function getCachedParams(bytes32 poolId) view returns (tuple(uint128 maxOI, uint8 maxLeverage, uint16 initialMarginBps, uint16 maintenanceMarginBps, uint16 fundingRateMultiplier, uint16 liquidationPenaltyBps, uint32 stalePriceThreshold, bool tradingHalted, uint48 computedAt, uint8 confidenceUsed))',
+  'function getParams(bytes32 poolId) external returns (tuple(uint128 maxOI, uint8 maxLeverage, uint16 initialMarginBps, uint16 maintenanceMarginBps, uint16 fundingRateMultiplier, uint16 liquidationPenaltyBps, uint32 stalePriceThreshold, bool tradingHalted, uint48 computedAt, uint8 confidenceUsed, uint8 riskScoreUsed))',
+  'function getCachedParams(bytes32 poolId) view returns (tuple(uint128 maxOI, uint8 maxLeverage, uint16 initialMarginBps, uint16 maintenanceMarginBps, uint16 fundingRateMultiplier, uint16 liquidationPenaltyBps, uint32 stalePriceThreshold, bool tradingHalted, uint48 computedAt, uint8 confidenceUsed, uint8 riskScoreUsed))',
+  'function syncCircuitBreaker(bytes32 poolId) external returns (bool halted)',
   'function clearCircuitBreaker(bytes32 poolId) external',
   'function getCircuitBreaker(bytes32 poolId) view returns (tuple(bool halted, uint48 haltedAt, string reason))',
   'function getRegisteredPools() view returns (bytes32[])',

@@ -16,7 +16,7 @@
  *   PRIVATE_KEY           — deployer wallet private key
  *   RPC_URL               — Monad RPC endpoint
  *   SHMON_ADDRESS         — shMON token contract address on Monad
- *   PERP_DEX_ADDRESS      — address of the perp DEX that will consume PerpRiskParams
+ *   EVIDENCE_POSTER_ADDRESS — address authorised to post evidence roots
  *   MIN_STAKE_MON         — minimum publisher stake in MON (e.g. "1000" for 1000 MON)
  *
  * Optional:
@@ -89,7 +89,7 @@ async function deployContract(signer, name, abi, bytecode, constructorArgs = [])
 
 async function main() {
   // ── Validate env
-  const required = ['PRIVATE_KEY', 'RPC_URL', 'SHMON_ADDRESS', 'PERP_DEX_ADDRESS'];
+  const required = ['PRIVATE_KEY', 'RPC_URL', 'SHMON_ADDRESS', 'EVIDENCE_POSTER_ADDRESS'];
   const missing  = required.filter(k => !process.env[k]);
   if (missing.length) {
     log.error('Missing required env vars: %s', missing.join(', '));
@@ -105,7 +105,7 @@ async function main() {
   log.info('Network:    %s (chainId %s)', network.name, network.chainId.toString());
   log.info('Deployer:   %s', signer.address);
   log.info('shMON:      %s', process.env.SHMON_ADDRESS);
-  log.info('Perp DEX:   %s', process.env.PERP_DEX_ADDRESS);
+  log.info('Evidence poster: %s', process.env.EVIDENCE_POSTER_ADDRESS);
   log.info('Min stake:  %s MON', process.env.MIN_STAKE_MON || '1000');
   log.divider();
 
@@ -151,6 +151,7 @@ async function main() {
       await publisherStake.getAddress(),
       await scoreRegistry.getAddress(),
       process.env.SHMON_ADDRESS,
+      process.env.EVIDENCE_POSTER_ADDRESS,
     ]
   );
 
@@ -163,7 +164,7 @@ async function main() {
     loadBytecode('PerpRiskParams'),
     [
       await scoreRegistry.getAddress(),
-      process.env.PERP_DEX_ADDRESS,
+      ethers.ZeroAddress,
     ]
   );
 

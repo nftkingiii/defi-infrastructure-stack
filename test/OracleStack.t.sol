@@ -15,9 +15,13 @@ contract MockShMON {
     mapping(address => mapping(address => uint256)) public allowance;
     uint256 public totalBurned;
 
-    function exchangeRate() external pure returns (uint256) { return 1.05e18; }
+    function exchangeRate() external pure returns (uint256) {
+        return 1.05e18;
+    }
 
-    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
 
     function approve(address spender, uint256 amount) external returns (bool) {
         allowance[msg.sender][spender] = amount;
@@ -27,65 +31,65 @@ contract MockShMON {
     function transfer(address to, uint256 amount) external returns (bool) {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         balanceOf[msg.sender] -= amount;
-        balanceOf[to]         += amount;
+        balanceOf[to] += amount;
         return true;
     }
 
     function transferFrom(address from, address to, uint256 amount) external returns (bool) {
         require(balanceOf[from] >= amount, "insufficient balance");
         require(allowance[from][msg.sender] >= amount, "insufficient allowance");
-        balanceOf[from]             -= amount;
+        balanceOf[from] -= amount;
         allowance[from][msg.sender] -= amount;
-        balanceOf[to]               += amount;
+        balanceOf[to] += amount;
         return true;
     }
 
     function burn(uint256 amount) external {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         balanceOf[msg.sender] -= amount;
-        totalBurned           += amount;
+        totalBurned += amount;
     }
 }
 
 // ── Base test setup ───────────────────────────────────────────────────────────
 
 contract OracleStackTest is Test {
-
-    MockShMON            shMon;
-    PublisherStake       publisherStake;
-    ScoreRegistry        scoreRegistry;
+    MockShMON shMon;
+    PublisherStake publisherStake;
+    ScoreRegistry scoreRegistry;
     DeviationAdjudicator adjudicator;
-    PerpRiskParams       perpRiskParams;
+    PerpRiskParams perpRiskParams;
 
-    address deployer   = address(0x1);
-    address publisher  = address(0x2);
+    address deployer = address(0x1);
+    address publisher = address(0x2);
     address publisher2 = address(0x3);
-    address watchdog   = address(0x4);
-    address perpDex    = address(0x5);
-    address claimant   = address(0x6);
-    address badActor   = address(0x7);
+    address watchdog = address(0x4);
+    address perpDex = address(0x5);
+    address claimant = address(0x6);
+    address badActor = address(0x7);
 
     uint128 constant MIN_STAKE_MON = 1000e18;
-    uint128 constant STAKE_AMOUNT  = 1100e18;
-    uint128 constant CLAIM_BOND    = 100e18;
+    uint128 constant STAKE_AMOUNT = 1100e18;
+    uint128 constant CLAIM_BOND = 50e18;
 
     bytes32 constant POOL_ID = keccak256(abi.encodePacked(uint256(5000), "aave-v3", "USDT"));
 
     function setUp() public {
         vm.startPrank(deployer);
 
-        shMon          = new MockShMON();
+        shMon = new MockShMON();
         publisherStake = new PublisherStake(address(shMon), address(0), MIN_STAKE_MON);
-        scoreRegistry  = new ScoreRegistry(address(publisherStake));
-        adjudicator    = new DeviationAdjudicator(address(publisherStake), address(scoreRegistry), address(shMon));
+        scoreRegistry = new ScoreRegistry(address(publisherStake));
+        adjudicator =
+            new DeviationAdjudicator(address(publisherStake), address(scoreRegistry), address(shMon), deployer);
         perpRiskParams = new PerpRiskParams(address(scoreRegistry), perpDex);
         publisherStake.setAdjudicator(address(adjudicator));
 
         vm.stopPrank();
 
-        shMon.mint(publisher,  STAKE_AMOUNT * 2);
+        shMon.mint(publisher, STAKE_AMOUNT * 2);
         shMon.mint(publisher2, STAKE_AMOUNT * 2);
-        shMon.mint(claimant,   CLAIM_BOND   * 2);
+        shMon.mint(claimant, CLAIM_BOND * 2);
     }
 
     function _registerPublisher(address pub) internal {
@@ -96,29 +100,33 @@ contract OracleStackTest is Test {
     }
 
     function _buildScore(
-        bytes32 poolId, uint32 baseApy, uint32 rewardApy,
-        uint128 tvlUsd, uint8 riskScore, uint8 confidence
+        bytes32 poolId,
+        uint32 baseApy,
+        uint32 rewardApy,
+        uint128 tvlUsd,
+        uint8 riskScore,
+        uint8 confidence
     ) internal pure returns (PoolScore memory) {
         return PoolScore({
-            poolId:           poolId,
-            protocolName:     "Aave V3",
-            symbol:           "USDT",
-            category:         Category.Lending,
-            baseApy:          baseApy,
-            rewardApy:        rewardApy,
-            netApy:           baseApy + rewardApy > 10 ? baseApy + rewardApy - 10 : 0,
+            poolId: poolId,
+            protocolName: "Aave V3",
+            symbol: "USDT",
+            category: Category.Lending,
+            baseApy: baseApy,
+            rewardApy: rewardApy,
+            netApy: baseApy + rewardApy > 10 ? baseApy + rewardApy - 10 : 0,
             apyVolatility30d: 50,
-            tvlUsd:           tvlUsd,
-            liquidityDepth:   100,
-            utilisationRate:  6000,
-            riskScore:        riskScore,
-            ilRisk:           0,
-            auditScore:       90,
-            protocolAgeDays:  730,
-            confidence:       confidence,
-            publisher:        address(0),
-            timestamp:        0,
-            updateCount:      0
+            tvlUsd: tvlUsd,
+            liquidityDepth: 100,
+            utilisationRate: 6000,
+            riskScore: riskScore,
+            ilRisk: 0,
+            auditScore: 90,
+            protocolAgeDays: 730,
+            confidence: confidence,
+            publisher: address(0),
+            timestamp: 0,
+            updateCount: 0
         });
     }
 }
@@ -126,7 +134,6 @@ contract OracleStackTest is Test {
 // ── PublisherStake Tests ──────────────────────────────────────────────────────
 
 contract PublisherStakeTest is OracleStackTest {
-
     function test_RegisterPublisher() public {
         _registerPublisher(publisher);
         assertTrue(publisherStake.isAuthorised(publisher));
@@ -181,7 +188,7 @@ contract PublisherStakeTest is OracleStackTest {
         uint256 balanceBefore = shMon.balanceOf(publisher);
         vm.prank(publisher);
         publisherStake.startUnbonding();
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.warp(block.timestamp + 38 days + 1);
         vm.prank(publisher);
         publisherStake.withdraw();
         assertEq(shMon.balanceOf(publisher), balanceBefore + STAKE_AMOUNT);
@@ -233,7 +240,6 @@ contract PublisherStakeTest is OracleStackTest {
 // ── ScoreRegistry Tests ───────────────────────────────────────────────────────
 
 contract ScoreRegistryTest is OracleStackTest {
-
     function test_AuthorisedPublisherCanPublish() public {
         _registerPublisher(publisher);
         PoolScore memory score = _buildScore(POOL_ID, 200, 50, 10_000_000e6, 80, 90);
@@ -256,11 +262,11 @@ contract ScoreRegistryTest is OracleStackTest {
         vm.prank(publisher);
         scoreRegistry.publishScore(score);
         PoolScore memory stored = scoreRegistry.getLatestScore(POOL_ID);
-        assertEq(stored.baseApy,    300);
-        assertEq(stored.rewardApy,  100);
-        assertEq(stored.riskScore,  75);
+        assertEq(stored.baseApy, 300);
+        assertEq(stored.rewardApy, 100);
+        assertEq(stored.riskScore, 75);
         assertEq(stored.confidence, 85);
-        assertEq(stored.publisher,  publisher);
+        assertEq(stored.publisher, publisher);
     }
 
     function test_RateLimitPreventsSpam() public {
@@ -291,7 +297,7 @@ contract ScoreRegistryTest is OracleStackTest {
         scoreRegistry.publishScore(score);
         vm.stopPrank();
         PoolScore[] memory history = scoreRegistry.getScoreHistory(POOL_ID, 10);
-        assertEq(history.length,      3);
+        assertEq(history.length, 3);
         assertEq(history[2].baseApy, 220);
     }
 
@@ -325,8 +331,80 @@ contract ScoreRegistryTest is OracleStackTest {
 
 // ── PerpRiskParams Tests ──────────────────────────────────────────────────────
 
-contract PerpRiskParamsTest is OracleStackTest {
+contract DeviationAdjudicatorTest is OracleStackTest {
+    function _publishScore() internal {
+        _registerPublisher(publisher);
+        PoolScore memory score = _buildScore(POOL_ID, 300, 100, 10_000_000e6, 80, 90);
+        vm.prank(publisher);
+        scoreRegistry.publishScore(score);
+    }
 
+    function _approveBond() internal {
+        vm.prank(claimant);
+        shMon.approve(address(adjudicator), CLAIM_BOND);
+    }
+
+    function test_OnlyEvidencePosterCanPostRoot() public {
+        vm.prank(badActor);
+        vm.expectRevert();
+        adjudicator.postEvidenceRoot(POOL_ID, publisher, 0, bytes32(uint256(1)));
+    }
+
+    function test_ClaimRequiresExactBond() public {
+        _publishScore();
+        vm.prank(claimant);
+        vm.expectRevert();
+        adjudicator.submitClaim(POOL_ID, publisher, SlashReason.ApyDeviation, 0);
+    }
+
+    function test_ClaimMustTargetScorePublisher() public {
+        _publishScore();
+        vm.prank(claimant);
+        vm.expectRevert();
+        adjudicator.submitClaim(POOL_ID, publisher2, SlashReason.ApyDeviation, CLAIM_BOND);
+    }
+
+    function test_ClaimSubmissionWindowIsBounded() public {
+        _publishScore();
+        _approveBond();
+        PoolScore memory score = scoreRegistry.getLatestScore(POOL_ID);
+        vm.warp(uint256(score.timestamp) + 1 days + 1);
+
+        vm.prank(claimant);
+        vm.expectRevert();
+        adjudicator.submitClaim(POOL_ID, publisher, SlashReason.ApyDeviation, CLAIM_BOND);
+    }
+
+    function test_AuthenticatedEvidenceCanSlashPublisher() public {
+        _publishScore();
+        _approveBond();
+
+        vm.prank(claimant);
+        uint256 claimId = adjudicator.submitClaim(POOL_ID, publisher, SlashReason.ApyDeviation, CLAIM_BOND);
+
+        Claim memory claim = adjudicator.getClaim(claimId);
+        uint48 evidenceTimestamp = claim.settlementEndsAt;
+        uint32 realisedApy = 1_000;
+        uint128 realisedTvl = claim.publishedTvl;
+        uint32 updateCount = 1;
+        bytes32 leaf = keccak256(abi.encodePacked(evidenceTimestamp, realisedApy, realisedTvl, updateCount));
+
+        vm.prank(deployer);
+        adjudicator.postEvidenceRoot(POOL_ID, publisher, claim.submittedAt, leaf);
+
+        uint128 stakeBefore = publisherStake.getPublisher(publisher).shMonStaked;
+        vm.warp(evidenceTimestamp);
+        vm.prank(watchdog);
+        adjudicator.executeClaim(
+            claimId, claim.submittedAt, evidenceTimestamp, realisedApy, realisedTvl, updateCount, new bytes32[](0)
+        );
+
+        assertLt(publisherStake.getPublisher(publisher).shMonStaked, stakeBefore);
+        assertEq(uint8(adjudicator.getClaim(claimId).status), uint8(ClaimStatus.Executed));
+    }
+}
+
+contract PerpRiskParamsTest is OracleStackTest {
     function _publishAndRegister(uint8 riskScore, uint8 confidence, uint128 tvlUsd, uint32 apyVol) internal {
         _registerPublisher(publisher);
         PoolScore memory score = _buildScore(POOL_ID, 300, 100, tvlUsd, riskScore, confidence);
@@ -351,46 +429,42 @@ contract PerpRiskParamsTest is OracleStackTest {
     function test_CircuitBreakerOnStaleScore() public {
         _publishAndRegister(80, 90, 10_000_000e6, 50);
         vm.warp(block.timestamp + 3 hours);
-        // Score is now stale (3h > MAX_SCORE_AGE of 2h) — must revert with StaleScore
+        // Score is now stale (3h > MAX_SCORE_AGE of 2h), so trading is halted.
         vm.prank(perpDex);
-        vm.expectRevert(abi.encodeWithSignature(
-            "StaleScore(bytes32,uint48,uint32)", POOL_ID, uint48(10800), uint32(7200)
-        ));
-        perpRiskParams.getParams(POOL_ID);
+        RiskParams memory params = perpRiskParams.getParams(POOL_ID);
+        assertTrue(params.tradingHalted);
+        assertTrue(perpRiskParams.getCircuitBreaker(POOL_ID).halted);
     }
 
     function test_CircuitBreakerOnLowConfidence() public {
         _publishAndRegister(80, 30, 10_000_000e6, 50);
-        // Confidence 30 is below MIN_CONFIDENCE (50) — getParams must revert
+        // Confidence 30 is below MIN_CONFIDENCE (50), so trading is halted.
         vm.prank(perpDex);
-        vm.expectRevert(abi.encodeWithSignature(
-            "ConfidenceTooLow(bytes32,uint8,uint8)", POOL_ID, uint8(30), uint8(50)
-        ));
-        perpRiskParams.getParams(POOL_ID);
+        RiskParams memory params = perpRiskParams.getParams(POOL_ID);
+        assertTrue(params.tradingHalted);
+        assertTrue(perpRiskParams.getCircuitBreaker(POOL_ID).halted);
     }
 
     function test_CircuitBreakerOnCriticalRiskScore() public {
         _publishAndRegister(15, 90, 10_000_000e6, 50);
-        // Risk score 15 is below MIN_RISK_SCORE_TO_TRADE (20) — must revert
+        // Risk score 15 is below MIN_RISK_SCORE_TO_TRADE (20), so trading is halted.
         vm.prank(perpDex);
-        vm.expectRevert(abi.encodeWithSignature(
-            "TradingHalted(bytes32,string)", POOL_ID, "Risk score critical"
-        ));
-        perpRiskParams.getParams(POOL_ID);
+        RiskParams memory params = perpRiskParams.getParams(POOL_ID);
+        assertTrue(params.tradingHalted);
+        assertTrue(perpRiskParams.getCircuitBreaker(POOL_ID).halted);
     }
 
     function test_ClearCircuitBreaker() public {
         _publishAndRegister(80, 90, 10_000_000e6, 50);
         vm.warp(block.timestamp + 3 hours);
         vm.prank(perpDex);
-        vm.expectRevert();
         perpRiskParams.getParams(POOL_ID);
-        vm.prank(perpDex);
-        perpRiskParams.clearCircuitBreaker(POOL_ID);
         vm.warp(block.timestamp + 120);
         PoolScore memory fresh = _buildScore(POOL_ID, 300, 100, 10_000_000e6, 80, 90);
         vm.prank(publisher);
         scoreRegistry.publishScore(fresh);
+        vm.prank(perpDex);
+        perpRiskParams.clearCircuitBreaker(POOL_ID);
         vm.prank(perpDex);
         RiskParams memory params = perpRiskParams.getParams(POOL_ID);
         assertFalse(params.tradingHalted);
@@ -422,7 +496,6 @@ contract PerpRiskParamsTest is OracleStackTest {
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
 contract IntegrationTest is OracleStackTest {
-
     function test_FullStackFlow() public {
         _registerPublisher(publisher);
         assertTrue(publisherStake.isAuthorised(publisher));
@@ -457,7 +530,7 @@ contract IntegrationTest is OracleStackTest {
 
         bytes32 pool2 = keccak256(abi.encodePacked(uint256(5000), "compound-v3", "USDC"));
         PoolScore memory score1 = _buildScore(POOL_ID, 300, 100, 10_000_000e6, 80, 90);
-        PoolScore memory score2 = _buildScore(pool2,   200,  50,  5_000_000e6, 70, 85);
+        PoolScore memory score2 = _buildScore(pool2, 200, 50, 5_000_000e6, 70, 85);
 
         vm.prank(publisher);
         scoreRegistry.publishScore(score1);
@@ -466,7 +539,7 @@ contract IntegrationTest is OracleStackTest {
 
         assertEq(scoreRegistry.poolCount(), 2);
         assertEq(scoreRegistry.getLatestScore(POOL_ID).publisher, publisher);
-        assertEq(scoreRegistry.getLatestScore(pool2).publisher,   publisher2);
+        assertEq(scoreRegistry.getLatestScore(pool2).publisher, publisher2);
     }
 
     function test_SlashedPublisherCannotPublish() public {
