@@ -112,3 +112,16 @@ The full thesis behind this stack is in [`docs/thesis.docx`](docs/thesis.docx).
 ## License
 
 MIT
+
+## Deploying the frontend on Render
+
+The repository includes a `render.yaml` Blueprint for the Next.js frontend.
+
+1. Push the repository to GitHub.
+2. In Render, choose **New > Blueprint** and connect this repository.
+3. Enter a WalletConnect Cloud project ID when prompted for
+   `NEXT_PUBLIC_WC_PROJECT_ID`.
+4. Apply the Blueprint.
+
+Render deploys the `frontend` directory as a Node web service and automatically
+redeploys it when the default branch changes.
