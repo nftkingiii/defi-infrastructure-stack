@@ -15,6 +15,9 @@ deployments/
 bytecode/*.bin
 out/
 artifacts/
+frontend/.next/
+frontend/next-env.d.ts
+*.tsbuildinfo
 
 # OS
 .DS_Store

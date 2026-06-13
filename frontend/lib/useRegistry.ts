@@ -85,7 +85,6 @@ export function usePoolScores(poolIds: string[] | undefined) {
   useEffect(() => {
     if (!poolIds?.length) return
     let cancelled = false
-    setLoad(true)
     const registry = getRegistry()
 
     Promise.all(poolIds.map(id => registry.getLatestScore(id)))
@@ -128,7 +127,7 @@ export function usePoolScores(poolIds: string[] | undefined) {
       })
 
     return () => { cancelled = true }
-  }, [poolIds?.join(',')])
+  }, [poolIds])
 
   return { data, isLoading }
 }

@@ -6,79 +6,83 @@ import { useAccount } from 'wagmi'
 import { RegistryTab } from '@/components/RegistryTab'
 import { DexTab } from '@/components/DexTab'
 import { ResearchTab } from '@/components/ResearchTab'
-import { CONTRACTS } from '@/lib/contracts'
 import { usePoolCount } from '@/lib/useRegistry'
 import { usePositionCount } from '@/lib/useDEX'
 
+type Tab = 'registry' | 'dex' | 'research'
+
+const navItems: { id: Tab; label: string; short: string }[] = [
+  { id: 'dex', label: 'Perpetuals', short: 'PX' },
+  { id: 'registry', label: 'Oracle registry', short: 'OR' },
+  { id: 'research', label: 'Research', short: 'RS' },
+]
+
 export default function Home() {
-  const [tab, setTab] = useState<'registry' | 'dex' | 'research'>('registry')
+  const [tab, setTab] = useState<Tab>('dex')
   const { address } = useAccount()
-  const { data: poolCount }     = usePoolCount()
+  const { data: poolCount } = usePoolCount()
   const { data: positionCount } = usePositionCount()
 
-  const tabs = [
-    { id: 'registry' as const, label: '01 / Registry' },
-    { id: 'dex'      as const, label: '02 / Perps DEX' },
-    { id: 'research' as const, label: '03 / Research' },
-  ]
-
   return (
-    <div className="layout">
-      <div className="signal-strip">
-        <div className="signal-dot" title="Oracle: live" />
-        <span className="signal-label">Oracle</span>
-        <div style={{ flex: 1 }} />
-        <div className="signal-dot acid" style={{ background: 'var(--acid)', animationDelay: '0.7s' }} />
-        <span className="signal-label">Chain</span>
-      </div>
+    <main className="app-shell">
+      <aside className="side-rail">
+        <button className="logo-button" onClick={() => setTab('dex')} aria-label="Oracle Stack home">
+          <span className="logo-orbit" />
+          <span className="logo-core">O</span>
+        </button>
+        <nav className="rail-nav" aria-label="Primary navigation">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`rail-item ${tab === item.id ? 'active' : ''}`}
+              onClick={() => setTab(item.id)}
+              title={item.label}
+            >
+              <span className="rail-icon">{item.short}</span>
+              <span className="rail-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="rail-footer"><span className="live-pulse" /><span>MONAD</span></div>
+      </aside>
 
-      <div className="main-content">
-        <div className="topbar">
-          <div className="brand">
-            <div className="brand-mark">
-              <div className="brand-mark-inner" />
-            </div>
-            <span className="brand-name">Oracle Stack</span>
-            <span className="brand-sub">Monad Testnet</span>
+      <section className="app-main">
+        <header className="app-header">
+          <div className="header-context">
+            <div className="product-name">Oracle Stack</div>
+            <div className="network-pill"><span /> Testnet live</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--data-muted)', fontFamily: 'JetBrains Mono' }}>
-              <span style={{ color: 'var(--violet)' }}>{poolCount?.toString() ?? '0'}</span> pools ·{' '}
-              <span style={{ color: 'var(--acid)' }}>{positionCount?.toString() ?? '0'}</span> positions
-            </div>
-            <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
+          <div className="header-metrics">
+            <div><span>Pools</span><strong>{poolCount?.toString() ?? '0'}</strong></div>
+            <div><span>Positions</span><strong>{positionCount?.toString() ?? '0'}</strong></div>
           </div>
-        </div>
-
-        <div className="page">
-          <div className="tabs">
-            {tabs.map(t => (
-              <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-                {t.label}
-              </button>
-            ))}
+          <div className="wallet-wrap">
+            <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
           </div>
+        </header>
 
-          {tab === 'registry' && <RegistryTab />}
-          {tab === 'dex'      && <DexTab address={address} />}
-          {tab === 'research' && <ResearchTab />}
-
-          <div className="contracts-footer">
-            {Object.entries(CONTRACTS).map(([name, addr]) => (
-              <div key={name}>
-                <div className="contract-item-label">{name}</div>
-                <a
-                  href={`https://testnet.monadscan.com/address/${addr}`}
-                  target="_blank" rel="noreferrer"
-                  className="contract-item-addr"
-                >
-                  {addr.slice(0, 10)}...{addr.slice(-6)}
-                </a>
+        <div className={`workspace ${tab === 'dex' ? 'workspace-dex' : ''}`}>
+          {tab === 'dex' && <DexTab address={address} />}
+          {tab === 'registry' && (
+            <section className="content-view">
+              <div className="view-heading">
+                <div><span className="eyebrow">Oracle intelligence</span><h1>Pool Registry</h1></div>
+                <p>Live publisher scores used to derive risk limits across the trading stack.</p>
               </div>
-            ))}
-          </div>
+              <RegistryTab />
+            </section>
+          )}
+          {tab === 'research' && (
+            <section className="content-view">
+              <div className="view-heading">
+                <div><span className="eyebrow">Calibration lab</span><h1>Research</h1></div>
+                <p>Compare oracle safety ratings with observed position and liquidation outcomes.</p>
+              </div>
+              <ResearchTab />
+            </section>
+          )}
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

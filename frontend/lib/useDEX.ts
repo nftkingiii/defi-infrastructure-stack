@@ -62,7 +62,7 @@ export function useOpenInterest(poolIds: string[] | undefined) {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [poolIds?.join(',')])
+  }, [poolIds])
 
   return { data }
 }
@@ -82,7 +82,7 @@ export function useMarkPrices(poolIds: string[] | undefined) {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [poolIds?.join(',')])
+  }, [poolIds])
 
   return { data }
 }
