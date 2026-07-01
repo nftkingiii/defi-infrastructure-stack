@@ -110,7 +110,7 @@ export function DexTab({ address }: { address?: string }) {
       <section className="market-strip">
         <div className="market-selector">
           <div className="asset-mark">{symbol.slice(0, 1)}</div>
-          <div><span className="market-kicker">ORACLE PERP</span><strong>{marketName} / {symbol}</strong></div>
+          <div><span className="market-kicker">SANDBOX MARKET</span><strong>{marketName} / {symbol}</strong></div>
           <select value={activePool} onChange={event => setSelectedPool(event.target.value)} aria-label="Select market">
             {pools.length === 0 && <option value="">No DEX pools</option>}
             {pools.map(pool => <option key={pool} value={pool}>{getScore(pool)?.protocolName || pool.slice(0, 12)}</option>)}
@@ -127,7 +127,7 @@ export function DexTab({ address }: { address?: string }) {
       {pools.length === 0 && (
         <div className="pool-empty-banner">
           <strong>No perps pool is registered yet.</strong>
-          <span>Deploy or seed the DEX pool, then this cockpit will switch from placeholder prices to contract-backed markets.</span>
+          <span>Deploy or seed the sandbox pool, then this cockpit will switch from placeholder prices to contract-backed markets.</span>
         </div>
       )}
 
@@ -242,7 +242,7 @@ export function DexTab({ address }: { address?: string }) {
           >
             {!address ? 'Connect wallet to trade' : approving ? 'Approving USDC...' : isConfirming ? 'Confirming transaction...' : opening ? 'Opening position...' : needsApproval ? 'Approve USDC' : `${side === 0 ? 'Long' : 'Short'} ${marketName}`}
           </button>
-          <p className="ticket-disclaimer">Orders execute against the research DEX contract on Monad Testnet. Leverage is capped by the latest oracle score.</p>
+          <p className="ticket-disclaimer">Sandbox orders execute on Monad Testnet to demonstrate how Verity scores cap leverage and market exposure.</p>
         </aside>
 
         <section className="positions-panel">

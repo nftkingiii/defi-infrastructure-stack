@@ -12,9 +12,9 @@ import { usePositionCount } from '@/lib/useDEX'
 type Tab = 'registry' | 'dex' | 'research'
 
 const navItems: { id: Tab; label: string; short: string }[] = [
-  { id: 'dex', label: 'Perpetuals', short: 'PX' },
-  { id: 'registry', label: 'Oracle registry', short: 'OR' },
-  { id: 'research', label: 'Research', short: 'RS' },
+  { id: 'dex', label: 'Sandbox', short: 'SB' },
+  { id: 'registry', label: 'Registry', short: 'RG' },
+  { id: 'research', label: 'Risk lab', short: 'RL' },
 ]
 
 export default function Home() {
@@ -26,9 +26,12 @@ export default function Home() {
   return (
     <main className="app-shell">
       <aside className="side-rail">
-        <button className="logo-button" onClick={() => setTab('dex')} aria-label="Oracle Stack home">
-          <span className="logo-orbit" />
-          <span className="logo-core">O</span>
+        <button className="logo-button" onClick={() => setTab('dex')} aria-label="Verity home">
+          <svg className="verity-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M11 10l13 29L37 10" />
+            <path d="M17 14l7 16 7-16" />
+            <circle cx="24" cy="33" r="3.2" />
+          </svg>
         </button>
         <nav className="rail-nav" aria-label="Primary navigation">
           {navItems.map(item => (
@@ -49,7 +52,10 @@ export default function Home() {
       <section className="app-main">
         <header className="app-header">
           <div className="header-context">
-            <div className="product-name">Oracle Stack</div>
+            <div>
+              <div className="product-name">Verity</div>
+              <div className="product-subtitle">Oracle risk infrastructure</div>
+            </div>
             <div className="network-pill"><span /> Testnet live</div>
           </div>
           <div className="header-metrics">
@@ -66,8 +72,8 @@ export default function Home() {
           {tab === 'registry' && (
             <section className="content-view">
               <div className="view-heading">
-                <div><span className="eyebrow">Oracle intelligence</span><h1>Pool Registry</h1></div>
-                <p>Live publisher scores used to derive risk limits across the trading stack.</p>
+                <div><span className="eyebrow">Oracle intelligence</span><h1>Registry</h1></div>
+                <p>Publisher-scored pools with confidence, provenance, APY, TVL, and risk signals used by the stack.</p>
               </div>
               <RegistryTab />
             </section>
@@ -75,8 +81,8 @@ export default function Home() {
           {tab === 'research' && (
             <section className="content-view">
               <div className="view-heading">
-                <div><span className="eyebrow">Calibration lab</span><h1>Research</h1></div>
-                <p>Compare oracle safety ratings with observed position and liquidation outcomes.</p>
+                <div><span className="eyebrow">Calibration lab</span><h1>Risk Lab</h1></div>
+                <p>Compare oracle safety ratings with observed sandbox positions and liquidation outcomes.</p>
               </div>
               <ResearchTab />
             </section>

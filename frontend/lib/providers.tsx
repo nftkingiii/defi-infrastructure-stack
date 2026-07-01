@@ -9,7 +9,7 @@ import '@rainbow-me/rainbowkit/styles.css'
 import { http } from 'wagmi'
 
 const config = getDefaultConfig({
-  appName:   'Oracle Stack Dashboard',
+  appName:   'Verity',
   projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'oracle-stack-monad',
   chains:    [MONAD_TESTNET as any],
   transports: {

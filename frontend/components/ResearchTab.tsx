@@ -50,7 +50,7 @@ export function ResearchTab() {
         {!hasData ? (
           <div className="empty-state">
             <strong>No position data yet</strong>
-            Open positions on the DEX tab to start generating calibration data
+            Open positions in the Sandbox to start generating calibration data
           </div>
         ) : (
           <>
