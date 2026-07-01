@@ -1,0 +1,144 @@
+Project Name
+Agent Reputation Passport
+One-Liner
+Agent Reputation Passport is a 0G-powered identity and reputation layer for AI agents, helping agents prove who they are, what they can do, and what work they have completed.
+Core Problem
+AI agents are becoming more common, but users still have no simple way to trust them.
+When someone sees an AI agent, they often cannot tell:
+Who owns it
+What it has done before
+Whether it is reliable
+Whether its claimed skills are real
+Whether its previous outputs can be verified
+Whether its reputation can move across platforms
+Most agents today are isolated inside one app. Their history, performance, reviews, and proof of work are usually lost, hidden, or controlled by a single platform.
+Core Solution
+Agent Reputation Passport gives every AI agent a public profile that acts like a trust passport.
+Each agent can have:
+A unique identity
+An owner
+A description
+Skill tags
+Task history
+Proof of completed work
+Ratings and reviews
+A reputation score
+Public records stored on 0G
+The goal is to make AI agents more trustworthy, discoverable, and portable.
+Main Idea
+Agents should not just be tools people use once and forget.
+They should be able to build a track record.
+Just like developers have GitHub profiles, freelancers have portfolios, and sellers have marketplace ratings, AI agents should have public reputation passports that show their past work and credibility.
+Why 0G Matters
+0G is the foundation for storing agent reputation records.
+Instead of keeping an agent’s reputation locked inside one app, 0G can store important public records such as:
+Agent profile information
+Completed task records
+Proof of work
+Output snapshots
+Reputation history
+Public verification data
+This makes the agent’s reputation more portable, transparent, and reusable across different apps or platforms.
+Target Users
+The product is useful for:
+AI agent builders
+Teams offering agent-based services
+People looking for reliable agents
+Web3 communities
+DAOs
+Developers
+Researchers
+Creators
+Businesses using AI agents
+Example Agents
+The platform could support agents such as:
+Research agents
+Coding agents
+Trading agents
+Customer-support agents
+Social-media agents
+Onchain-analysis agents
+Writing agents
+Education agents
+Productivity agents
+Game or companion agents
+How It Works
+A user creates a passport for an AI agent.
+The passport contains the agent’s identity, owner, capabilities, and public information.
+When the agent completes tasks, those tasks can be recorded as proof of work.
+Users can rate or review the agent’s completed work.
+Over time, the agent builds a visible reputation based on its activity, quality, and verified history.
+Key Features
+Agent Directory
+A public place where users can discover registered AI agents.
+Users can browse agents by category, skill, reputation score, number of completed tasks, or owner.
+Agent Passport
+Each agent gets its own profile page.
+The passport shows the agent’s name, description, owner, capabilities, task history, reputation score, ratings, reviews, and proof records.
+Agent Registration
+Builders can register their agents and define what the agent does.
+They can add the agent’s name, category, description, skills, owner information, and links to related projects or demos.
+Task History
+Every agent can build a record of completed work.
+This helps users see what the agent has actually done instead of only relying on claims.
+Proof of Work
+Completed tasks can be stored as public proof records.
+This gives users a way to verify that an agent has completed real work.
+Ratings and Reviews
+Users can rate agents after using them.
+This helps separate reliable agents from low-quality or untested ones.
+Reputation Score
+Each agent gets a reputation score based on its history, completed tasks, reviews, ratings, and verified outputs.
+The score should be simple, transparent, and easy to understand.
+Portable Reputation
+The agent’s reputation should not belong only to one platform.
+Because records are stored through 0G, the agent’s identity and history can potentially be reused across different apps.
+Types of Memory
+There are two important types of memory in this project.
+Agent Memory
+This is the memory an agent uses to perform better.
+It may include user preferences, past instructions, project context, domain knowledge, or previous conversations.
+Reputation Memory
+This is the public record of what the agent has done.
+It includes completed tasks, ratings, reviews, proof records, timestamps, and performance history.
+For the first version, the focus should be on reputation memory because it is easier to show, easier to verify, and more useful for public trust.
+Why This Is AI-Native
+The main object of the product is the AI agent.
+The product is built around agent identity, agent tasks, agent memory, agent proof of work, agent reviews, and agent reputation.
+It is not just a normal app with AI added. The AI agent is the central user and asset.
+Why This Is Crypto-Native
+The product benefits from wallet-based ownership, decentralized storage, public records, portable identity, and verifiable reputation.
+0G helps make the agent’s track record more open and reusable instead of locked inside a private database.
+Minimum Viable Product
+The first version should include:
+Agent directory
+Agent registration
+Agent passport page
+Task history
+Proof record storage
+Ratings and reviews
+Reputation score
+0G storage integration
+Future Features
+Later versions could include:
+Agent-to-agent collaboration
+Verified skill badges
+Dispute system for bad outputs
+Paid agent services
+Agent marketplace
+Cross-platform agent identity
+Private memory vaults
+Team-owned agents
+API for other apps to read agent reputation
+Main Pitch
+Agent Reputation Passport is a decentralized trust layer for AI agents.
+It lets anyone register an AI agent, record its completed work, store reputation data on 0G, and build a portable public profile that users can inspect before trusting or hiring the agent.
+Why This Can Stand Out
+This idea is strong because:
+It focuses directly on AI agents
+0G has a meaningful role
+The problem is real and growing
+The product is easy to understand
+It can start simple but expand into a larger agent economy
+It creates trust, portability, and accountability for AI agents
+The goal is to make AI agents more than temporary tools. It gives them identity, memory, history, and reputation.

@@ -3,7 +3,7 @@ import { Providers } from '@/lib/providers'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Oracle Stack — Monad Testnet',
+  title: 'Oracle Stack - Monad Testnet',
   description: 'Governance-minimized yield intelligence oracle and perpetuals DEX on Monad',
 }
 

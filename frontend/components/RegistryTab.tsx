@@ -23,26 +23,26 @@ export function RegistryTab() {
       <div className="stats-row">
         <div className="stat-cell">
           <div className="stat-label">Pools tracked</div>
-          <div className="stat-value violet">{poolCount?.toString() ?? '—'}</div>
+          <div className="stat-value violet">{poolCount?.toString() ?? '-'}</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Avg risk score</div>
-          <div className="stat-value acid">{avgRisk ?? '—'}</div>
+          <div className="stat-value acid">{avgRisk ?? '-'}</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Best APY</div>
-          <div className="stat-value">{bestApy ? formatApy(bestApy) : '—'}</div>
+          <div className="stat-value">{bestApy ? formatApy(bestApy) : '-'}</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Total TVL tracked</div>
-          <div className="stat-value">{totalTvl > 0n ? formatTvl(totalTvl) : '—'}</div>
+          <div className="stat-value">{totalTvl > 0n ? formatTvl(totalTvl) : '-'}</div>
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-header">
           <span className="panel-title">Pool scores</span>
-          <span className="panel-sub">Sorted by risk score · Publisher updates every 30 min</span>
+          <span className="panel-sub">Sorted by risk score - Publisher updates every 30 min</span>
         </div>
         {isLoading ? (
           <div className="loading-state">Fetching registry data</div>

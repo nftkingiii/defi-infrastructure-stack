@@ -6,7 +6,24 @@ import {
   useUsdcBalance, useUsdcAllowance, useApproveUsdc, useOpenPosition, useMintUsdc
 } from '@/lib/useDEX'
 import { usePoolIds, usePoolScores } from '@/lib/useRegistry'
-import { formatUsdc } from '@/lib/contracts'
+import { formatApy, formatTvl, formatUsdc } from '@/lib/contracts'
+
+type PoolScore = {
+  poolId: string
+  protocolName?: string
+  symbol?: string
+  baseApy?: number
+  rewardApy?: number
+  tvlUsd?: bigint | number | string
+  riskScore?: number
+  confidence?: number
+  liquidityDepth?: number
+  volatility?: number
+  auditScore?: number
+  timestamp?: bigint | number
+  updateCount?: bigint | number
+  publisher?: string
+}
 
 const CHART_POINTS = '0,154 34,143 68,150 102,112 136,126 170,88 204,102 238,74 272,83 306,51 340,66 374,38 408,59 442,48 476,76 510,55 544,87 578,63 612,70 646,42 680,51 714,28 748,44 782,21 816,34'
 
@@ -30,8 +47,11 @@ export function DexTab({ address }: { address?: string }) {
   const { open, isPending: opening, isConfirming } = useOpenPosition()
   const { mint, isPending: minting } = useMintUsdc()
 
-  const scores = scoresRaw?.map(r => r.result as any).filter(Boolean) ?? []
-  const getScore = (poolId: string) => scores.find((score: any) => score?.poolId === poolId)
+  const scores = useMemo(
+    () => scoresRaw?.map(row => row.result as PoolScore | undefined).filter(Boolean) as PoolScore[] ?? [],
+    [scoresRaw]
+  )
+  const getScore = (poolId: string) => scores.find(score => score?.poolId === poolId)
 
   const activePool = selectedPool || pools[0] || ''
   const selectedIndex = Math.max(0, pools.indexOf(activePool))
@@ -41,26 +61,48 @@ export function DexTab({ address }: { address?: string }) {
   const markPrice = markPriceRaw ? markPriceRaw / 100 : 1
   const riskScore = Number(selectedScore?.riskScore ?? 80)
   const confidence = Number(selectedScore?.confidence ?? 90)
+  const auditScore = Number(selectedScore?.auditScore ?? 90)
   const maxLeverage = Math.max(2, Math.floor(20 * riskScore / 100))
+  const safeLeverage = Math.min(leverage, maxLeverage)
   const usdcBal = usdcBalance ? Number(usdcBalance as bigint) / 1e6 : 0
   const colNum = parseFloat(collateral || '0')
-  const positionSize = colNum * leverage
+  const positionSize = colNum * safeLeverage
   const needsApproval = !allowance || (allowance as bigint) < BigInt(Math.floor(colNum * 1e6))
   const marketName = selectedScore?.protocolName || 'Aave V3'
   const symbol = selectedScore?.symbol || 'USDC'
   const riskTone = riskScore >= 75 ? 'positive' : riskScore >= 50 ? 'warning' : 'negative'
+  const posture = riskScore >= 75 ? 'Healthy' : riskScore >= 50 ? 'Watch' : 'Restricted'
+  const postureCopy = riskScore >= 75
+    ? 'Score supports normal sizing with automated leverage caps.'
+    : riskScore >= 50
+      ? 'Tradeable, but confidence and liquidity deserve closer attention.'
+      : 'High risk bucket. Size down until the oracle improves.'
+  const tvl = selectedScore?.tvlUsd !== undefined ? formatTvl(BigInt(selectedScore.tvlUsd)) : '$0'
+  const apy = formatApy(Number(selectedScore?.baseApy ?? 0) + Number(selectedScore?.rewardApy ?? 0))
+  const liquidityDepth = Number(selectedScore?.liquidityDepth ?? 0)
+  const volatility = Number(selectedScore?.volatility ?? 0)
+  const updateCount = selectedScore?.updateCount !== undefined ? selectedScore.updateCount.toString() : '0'
+  const publisher = truncateAddress(selectedScore?.publisher)
+  const scoreAge = formatScoreAge(selectedScore?.timestamp)
+  const submitDisabled = !address || !activePool || !collateral || opening || approving || isConfirming
 
-  const recentActivity = useMemo(() => [
-    { side: 'Long', size: '$1,250', price: markPrice.toFixed(2), time: '12s' },
-    { side: 'Short', size: '$620', price: (markPrice * 1.002).toFixed(2), time: '38s' },
-    { side: 'Long', size: '$2,100', price: (markPrice * .998).toFixed(2), time: '1m' },
-    { side: 'Long', size: '$480', price: (markPrice * 1.001).toFixed(2), time: '3m' },
+  const sampleActivity = useMemo(() => [
+    { side: 'Long', size: '$1,250', price: markPrice.toFixed(2), time: 'sample' },
+    { side: 'Short', size: '$620', price: (markPrice * 1.002).toFixed(2), time: 'sample' },
+    { side: 'Long', size: '$2,100', price: (markPrice * .998).toFixed(2), time: 'sample' },
+    { side: 'Long', size: '$480', price: (markPrice * 1.001).toFixed(2), time: 'sample' },
   ], [markPrice])
+
+  const handleBalanceShortcut = (shortcut: string) => {
+    const multiplier = shortcut === 'MAX' ? 1 : Number(shortcut.replace('%', '')) / 100
+    const nextCollateral = Math.max(0, usdcBal * multiplier)
+    setCollateral(nextCollateral ? nextCollateral.toFixed(2) : '0')
+  }
 
   const handleTrade = () => {
     if (!activePool || !collateral || !address) return
     if (needsApproval) approve((colNum * 10).toString())
-    else open(activePool, side, collateral, leverage)
+    else open(activePool, side, collateral, safeLeverage)
   }
 
   return (
@@ -68,19 +110,26 @@ export function DexTab({ address }: { address?: string }) {
       <section className="market-strip">
         <div className="market-selector">
           <div className="asset-mark">{symbol.slice(0, 1)}</div>
-          <div><span className="market-kicker">PERPETUAL</span><strong>{marketName} / {symbol}</strong></div>
+          <div><span className="market-kicker">ORACLE PERP</span><strong>{marketName} / {symbol}</strong></div>
           <select value={activePool} onChange={event => setSelectedPool(event.target.value)} aria-label="Select market">
-            {pools.length === 0 && <option value="">Demo market</option>}
+            {pools.length === 0 && <option value="">No DEX pools</option>}
             {pools.map(pool => <option key={pool} value={pool}>{getScore(pool)?.protocolName || pool.slice(0, 12)}</option>)}
           </select>
         </div>
-        <div className="ticker-price"><strong>${markPrice.toFixed(2)}</strong><span className="positive">+2.84%</span></div>
+        <div className="ticker-price"><strong>${markPrice.toFixed(2)}</strong><span className={riskTone}>{posture}</span></div>
         <Metric label="Oracle score" value={`${riskScore}/100`} tone={riskTone} />
         <Metric label="Confidence" value={`${confidence}%`} />
         <Metric label="Open interest" value={openInterest !== undefined ? formatUsdc(openInterest) : '$0.00'} />
-        <Metric label="Funding / 8h" value="0.010%" tone="positive" />
-        <Metric label="Next funding" value="02:41:18" />
+        <Metric label="Score age" value={scoreAge} />
+        <Metric label="Max leverage" value={`${maxLeverage}x`} tone={riskTone} />
       </section>
+
+      {pools.length === 0 && (
+        <div className="pool-empty-banner">
+          <strong>No perps pool is registered yet.</strong>
+          <span>Deploy or seed the DEX pool, then this cockpit will switch from placeholder prices to contract-backed markets.</span>
+        </div>
+      )}
 
       {address && usdcBal < 100 && (
         <div className="funding-banner">
@@ -92,7 +141,7 @@ export function DexTab({ address }: { address?: string }) {
       <div className="terminal-grid">
         <section className="chart-panel">
           <div className="panel-toolbar">
-            <div className="toolbar-tabs"><button className="active">Chart</button><button>Depth</button><button>Oracle data</button></div>
+            <div className="toolbar-tabs"><button className="active">Chart</button><button>Depth</button><button>Oracle proof</button></div>
             <div className="range-tabs">
               {['5M', '15M', '1H', '4H', '1D'].map(range => (
                 <button key={range} className={chartRange === range ? 'active' : ''} onClick={() => setChartRange(range)}>{range}</button>
@@ -130,10 +179,10 @@ export function DexTab({ address }: { address?: string }) {
             <div className="chart-price-tag">${markPrice.toFixed(2)}</div>
           </div>
           <div className="oracle-ribbon">
-            <div><span>Oracle posture</span><strong className={riskTone}>{riskScore >= 75 ? 'Healthy' : riskScore >= 50 ? 'Watch' : 'Restricted'}</strong></div>
+            <div><span>Oracle posture</span><strong className={riskTone}>{posture}</strong></div>
             <RiskGauge label="Risk score" value={riskScore} tone={riskTone} />
             <RiskGauge label="Confidence" value={confidence} tone="info" />
-            <RiskGauge label="Audit score" value={Number(selectedScore?.auditScore ?? 90)} tone="violet" />
+            <RiskGauge label="Audit score" value={auditScore} tone="violet" />
             <div className="breaker-state"><span /> Circuit breaker clear</div>
           </div>
         </section>
@@ -142,6 +191,23 @@ export function DexTab({ address }: { address?: string }) {
           <div className="ticket-head">
             <div><span>Available balance</span><strong>${usdcBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
             <span className="settlement-chip">USDC</span>
+          </div>
+          <div className="ticket-oracle-card">
+            <div className="oracle-card-head">
+              <span>Trade posture</span>
+              <strong className={riskTone}>{posture}</strong>
+            </div>
+            <p>{postureCopy}</p>
+            <div className="factor-grid">
+              <div><span>TVL</span><strong>{tvl}</strong></div>
+              <div><span>Total APY</span><strong>{apy}</strong></div>
+              <div><span>Depth</span><strong>{liquidityDepth}/100</strong></div>
+              <div><span>Volatility</span><strong>{volatility}/100</strong></div>
+            </div>
+            <div className="proof-row">
+              <span>Publisher {publisher}</span>
+              <span>{updateCount} updates</span>
+            </div>
           </div>
           <div className="side-toggle">
             <button className={side === 0 ? 'long active' : ''} onClick={() => setSide(0)}>Long</button>
@@ -152,11 +218,15 @@ export function DexTab({ address }: { address?: string }) {
             <span>Collateral</span>
             <div><input type="number" value={collateral} onChange={event => setCollateral(event.target.value)} /><b>USDC</b></div>
           </label>
-          <div className="balance-shortcuts">{['25%', '50%', '75%', 'MAX'].map(value => <button key={value}>{value}</button>)}</div>
+          <div className="balance-shortcuts">
+            {['25%', '50%', '75%', 'MAX'].map(value => (
+              <button key={value} onClick={() => handleBalanceShortcut(value)}>{value}</button>
+            ))}
+          </div>
           <label className="leverage-field">
-            <span><b>Leverage</b><strong>{leverage}x</strong></span>
-            <input type="range" min={1} max={maxLeverage} value={Math.min(leverage, maxLeverage)} onChange={event => setLeverage(Number(event.target.value))} />
-            <div><span>1x</span><span>{maxLeverage}x max</span></div>
+            <span><b>Leverage</b><strong>{safeLeverage}x</strong></span>
+            <input type="range" min={1} max={maxLeverage} value={safeLeverage} onChange={event => setLeverage(Number(event.target.value))} />
+            <div><span>1x</span><span>{maxLeverage}x score cap</span></div>
           </label>
           <div className="order-preview">
             <PreviewRow label="Position size" value={`$${positionSize.toLocaleString()}`} />
@@ -168,11 +238,11 @@ export function DexTab({ address }: { address?: string }) {
           <button
             className={`trade-submit ${side === 0 ? 'long' : 'short'}`}
             onClick={handleTrade}
-            disabled={!address || !activePool || !collateral || opening || approving || isConfirming}
+            disabled={submitDisabled}
           >
             {!address ? 'Connect wallet to trade' : approving ? 'Approving USDC...' : isConfirming ? 'Confirming transaction...' : opening ? 'Opening position...' : needsApproval ? 'Approve USDC' : `${side === 0 ? 'Long' : 'Short'} ${marketName}`}
           </button>
-          <p className="ticket-disclaimer">Orders execute against the research DEX contract on Monad Testnet.</p>
+          <p className="ticket-disclaimer">Orders execute against the research DEX contract on Monad Testnet. Leverage is capped by the latest oracle score.</p>
         </aside>
 
         <section className="positions-panel">
@@ -187,9 +257,9 @@ export function DexTab({ address }: { address?: string }) {
         </section>
 
         <section className="activity-panel">
-          <div className="activity-head"><div><span className="live-pulse" /> Live activity</div><button>View all</button></div>
-          <div className="activity-columns"><span>Side</span><span>Size</span><span>Price</span><span>Time</span></div>
-          {recentActivity.map((item, index) => (
+          <div className="activity-head"><div><span className="sample-badge">Sample</span> Market tape</div><button>Contract feed next</button></div>
+          <div className="activity-columns"><span>Side</span><span>Size</span><span>Price</span><span>Source</span></div>
+          {sampleActivity.map((item, index) => (
             <div className="activity-row" key={`${item.time}-${index}`}>
               <span className={item.side === 'Long' ? 'positive' : 'negative'}>{item.side}</span>
               <strong>{item.size}</strong><span>${item.price}</span><small>{item.time}</small>
@@ -211,4 +281,22 @@ function RiskGauge({ label, value, tone }: { label: string; value: number; tone:
 
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>
+}
+
+function truncateAddress(value?: string) {
+  if (!value || value === '0x0000000000000000000000000000000000000000') return 'unassigned'
+  return `${value.slice(0, 6)}...${value.slice(-4)}`
+}
+
+function formatScoreAge(timestamp?: bigint | number) {
+  if (!timestamp) return 'pending'
+  const seconds = Number(timestamp)
+  const ageMs = Date.now() - seconds * 1000
+  if (ageMs < 0) return 'fresh'
+  const minutes = Math.floor(ageMs / 60000)
+  if (minutes < 1) return '<1m'
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
 }

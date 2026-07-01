@@ -21,7 +21,7 @@ export const MONAD_TESTNET = {
   },
 } as const
 
-// ── ABIs (minimal — only what the frontend needs) ────────────────────────────
+// ABIs (minimal - only what the frontend needs)
 
 export const SCORE_REGISTRY_ABI = [
   'function getAllPoolIds() view returns (bytes32[])',
@@ -58,7 +58,7 @@ export const PUBLISHER_STAKE_ABI = [
   'function getPublisher(address publisher) view returns (tuple(uint128 shMonStaked, uint128 monValueAtDeposit, uint48 stakedAt, uint48 unbondingEndsAt, uint32 slashCount, uint32 poolsPublished, uint8 status))',
 ] as const
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 export const CATEGORY_LABELS: Record<number, string> = {
   0: 'DEX', 1: 'Lending', 2: 'Staking', 3: 'Vault', 4: 'RWA', 5: 'Perps', 6: 'Unknown'

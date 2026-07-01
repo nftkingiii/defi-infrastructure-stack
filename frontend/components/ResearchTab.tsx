@@ -3,7 +3,7 @@
 import { useLiquidationRates, usePositionCount } from '@/lib/useDEX'
 import { usePoolCount } from '@/lib/useRegistry'
 
-const SCORE_RANGES = ['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–99']
+const SCORE_RANGES = ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-99']
 
 export function ResearchTab() {
   const { data: ratesRaw }      = useLiquidationRates()
@@ -31,7 +31,7 @@ export function ResearchTab() {
         <div className="stat-cell">
           <div className="stat-label">Overall liq rate</div>
           <div className="stat-value">
-            {totalPos > 0 ? ((totalLiq / totalPos) * 100).toFixed(1) + '%' : '—'}
+            {totalPos > 0 ? ((totalLiq / totalPos) * 100).toFixed(1) + '%' : '-'}
           </div>
         </div>
         <div className="stat-cell">
@@ -101,11 +101,11 @@ export function ResearchTab() {
               const pos     = r ? Number(r[1]) : 0
               const rate    = r ? Number(r[2]) : 0
               const rating  = i >= 8 ? 'Very safe' : i >= 6 ? 'Safe' : i >= 4 ? 'Moderate' : i >= 2 ? 'Risky' : 'Very risky'
-              const signal  = pos === 0 ? '—'
+              const signal  = pos === 0 ? '-'
                 : rate > 3000 && i >= 6 ? 'Overrating safety'
                 : rate < 500 && i < 4   ? 'Overrating risk'
                 : pos > 0               ? 'Calibrated'
-                : '—'
+                : '-'
               const sigColor = signal === 'Overrating safety' ? 'var(--red)'
                 : signal === 'Overrating risk' ? 'var(--amber)'
                 : signal === 'Calibrated'      ? 'var(--acid)'
@@ -119,7 +119,7 @@ export function ResearchTab() {
                   <td>{pos}</td>
                   <td>{liq}</td>
                   <td style={{ color: rate > 2000 ? 'var(--red)' : 'var(--data)' }}>
-                    {pos > 0 ? (rate / 100).toFixed(1) + '%' : '—'}
+                    {pos > 0 ? (rate / 100).toFixed(1) + '%' : '-'}
                   </td>
                   <td style={{ color: sigColor, fontSize: 11 }}>{signal}</td>
                 </tr>
